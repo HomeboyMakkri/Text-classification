@@ -51,7 +51,7 @@ def train_baseline(
     pipe.fit(X_train, y_train)
 
     y_pred = pipe.predict(X_valid)
-    f1 = f1_score(y_valid, y_pred, average="macro")
+    f1 = float(f1_score(y_valid, y_pred, average="macro"))
 
     print("Classification report (validation):")
     print(classification_report(y_valid, y_pred))
