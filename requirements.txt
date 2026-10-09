@@ -1,0 +1,13 @@
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+jupyter
+nltk
+spacy
+imbalanced-learn
+optuna
+transformers
+sentence-transformers
+torch

@@ -1,0 +1,8 @@
+{
+  "input_path": "data/processed/clean_news.csv",
+  "model_path": "models/baseline_logreg.joblib",
+  "text_col": "text",
+  "target_col": "sentiment",
+  "test_size": 0.2,
+  "random_state": 42
+}
