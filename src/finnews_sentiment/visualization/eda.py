@@ -1,39 +1,86 @@
-from typing import Optional
+"""Read-only EDA for raw financial sentiment data."""
+
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
+from matplotlib.figure import Figure
+
+from finnews_sentiment.data.load_data import CLASS_ORDER, validate_news
 
 
-def plot_subject_distribution(df: pd.DataFrame, subject_col: str = "subject", top_n: int = 10) -> None:
-    """Рисует распределение по темам новостей."""
-    plt.figure(figsize=(10, 5))
-    counts = df[subject_col].value_counts().head(top_n)
-    sns.barplot(x=counts.index, y=counts.values)
-    plt.xticks(rotation=45, ha="right")
-    plt.title("Распределение новостей по subject (top N)")
-    plt.tight_layout()
-    plt.show()
+def quality_summary(df: pd.DataFrame) -> dict[str, object]:
+    """Count raw rows; duplicates are counted beyond their first occurrence."""
+    validate_news(df)
+    text = df["text"].astype("string")
+    valid_text = text.notna() & text.str.strip().ne("").fillna(False)
+    labeled = df.loc[valid_text & df["sentiment"].notna()]
+    label_counts = labeled.groupby("text")["sentiment"].nunique()
+    return {
+        "rows": len(df),
+        "columns": list(df.columns),
+        "dtypes": {name: str(dtype) for name, dtype in df.dtypes.items()},
+        "missing": {name: int(count) for name, count in df.isna().sum().items()},
+        "blank_texts": int((text.notna() & text.str.strip().eq("").fillna(False)).sum()),
+        "duplicate_rows": int(df.duplicated().sum()),
+        "duplicate_texts": int(text.loc[valid_text].duplicated().sum()),
+        "conflicting_texts": int((label_counts > 1).sum()),
+    }
 
 
-def plot_provider_distribution(df: pd.DataFrame, provider_col: str = "provider", top_n: int = 10) -> None:
-    """Рисует распределение по источникам новостей."""
-    plt.figure(figsize=(10, 5))
-    counts = df[provider_col].value_counts().head(top_n)
-    sns.barplot(x=counts.index, y=counts.values)
-    plt.xticks(rotation=45, ha="right")
-    plt.title("Распределение новостей по provider (top N)")
-    plt.tight_layout()
-    plt.show()
+def class_distribution(df: pd.DataFrame) -> pd.DataFrame:
+    """Fixed class order; fractions use all rows, including missing labels."""
+    validate_news(df)
+    counts = df["sentiment"].value_counts().reindex(CLASS_ORDER, fill_value=0)
+    return pd.DataFrame({"count": counts, "fraction": counts / len(df)}).rename_axis("sentiment")
 
 
-def plot_text_length_distribution(df: pd.DataFrame, text_col: str = "text", bins: int = 50) -> None:
-    """Распределение длины текстов в словах."""
-    lengths = df[text_col].astype(str).str.split().apply(len)
-    plt.figure(figsize=(10, 5))
-    sns.histplot(lengths, bins=bins, kde=True)
-    plt.title("Распределение длины текстов (в словах)")
-    plt.xlabel("Количество слов")
-    plt.ylabel("Частота")
-    plt.tight_layout()
-    plt.show()
+def text_lengths(df: pd.DataFrame) -> pd.DataFrame:
+    """Characters and whitespace-separated words, not model tokenizer tokens."""
+    validate_news(df)
+    text = df["text"].astype("string")
+    return pd.DataFrame({
+        "char_count": text.str.len().astype("Int64"),
+        "word_count": text.map(lambda value: len(value.split()) if isinstance(value, str) else pd.NA).astype("Int64"),
+    }, index=df.index)
+
+
+def class_examples(df: pd.DataFrame, n: int = 3) -> dict[str, list[str]]:
+    """Take deterministic first nonblank examples; absent classes return []."""
+    validate_news(df)
+    if n < 1:
+        raise ValueError("n must be positive")
+    text = df["text"].astype("string")
+    valid = text.notna() & text.str.strip().ne("").fillna(False)
+    return {
+        sentiment: df.loc[valid & df["sentiment"].eq(sentiment), "text"].head(n).tolist()
+        for sentiment in CLASS_ORDER
+    }
+
+
+def plot_class_distribution(df: pd.DataFrame, path: Path | None = None) -> Figure:
+    counts = class_distribution(df)["count"]
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar(counts.index, counts.to_numpy())
+    ax.set(title="Financial sentiment classes (raw data)", ylabel="Rows", xlabel="Sentiment")
+    fig.tight_layout()
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, dpi=150)
+    return fig
+
+
+def plot_text_length_distribution(
+    df: pd.DataFrame, path: Path | None = None, bins: int = 50
+) -> Figure:
+    lengths = text_lengths(df)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    for ax, column, label in zip(axes, lengths.columns, ("Characters", "Whitespace-separated words")):
+        ax.hist(lengths[column].dropna().to_numpy(dtype=float), bins=bins)
+        ax.set(xlabel=label, ylabel="Rows")
+    fig.suptitle("Text length distributions (raw data)")
+    fig.tight_layout()
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, dpi=150)
+    return fig

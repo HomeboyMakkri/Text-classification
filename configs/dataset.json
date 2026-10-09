@@ -1,0 +1,17 @@
+{
+  "dataset": "takala/financial_phrasebank",
+  "revision": "8d3fe0c36d5feec6b3cc5e455b0fcb4820fb9964",
+  "url": "https://huggingface.co/datasets/takala/financial_phrasebank/resolve/8d3fe0c36d5feec6b3cc5e455b0fcb4820fb9964/data/FinancialPhraseBank-v1.0.zip",
+  "archive_sha256": "0e1a06c4900fdae46091d031068601e3773ba067c7cecb5b0da1dcba5ce989a6",
+  "subset": "sentences_75agree",
+  "member": "FinancialPhraseBank-v1.0/Sentences_75Agree.txt",
+  "encoding": "iso-8859-1",
+  "license": "CC-BY-NC-SA-3.0",
+  "citation": "Malo et al. (2014), Good debt or bad debt: Detecting semantic orientations in economic texts",
+  "expected_rows": 3453,
+  "class_order": [
+    "negative",
+    "neutral",
+    "positive"
+  ]
+}
