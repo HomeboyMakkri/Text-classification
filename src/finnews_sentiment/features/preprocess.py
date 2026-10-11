@@ -1,57 +1,55 @@
-from typing import List
+"""Minimal text cleanup; table/feature helpers below remain curriculum templates."""
+
+from html import unescape
+from html.entities import html5
+import re
 
 import pandas as pd
-import re
-import string
-
-import nltk
-
-# Убедитесь, что необходимые ресурсы NLTK скачаны:
-# nltk.download("punkt")
-# nltk.download("wordnet")
-# nltk.download("stopwords")
-
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
 
 
-STOPWORDS = set(stopwords.words("english"))
-LEMMATIZER = WordNetLemmatizer()
-
+PREPROCESSING_POLICY = "minimal-v1"
+_ENTITY_PATTERN = re.compile(r"&(?:\#[0-9]+;?|\#[xX][0-9a-fA-F]+;?|[A-Za-z][A-Za-z0-9]*;?)")
+# Match complete tags, including quoted attributes containing '>'. Comparisons
+# and incomplete markup do not match. This is text cleanup, not a web scraper.
+_MARKUP_PATTERN = re.compile(
+    r'''<!--.*?-->
+    | <(?:
+        [A-Za-z][A-Za-z0-9:-]*
+        (?:\s+[^\s/<>="'`]+
+            (?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s<>="'`]+))?
+        )*\s*/?
+        | /[A-Za-z][A-Za-z0-9:-]*\s*
+    )>''',
+    re.VERBOSE | re.DOTALL,
+)
 
 TICKER_PATTERN = re.compile(r"\b[A-Z]{2,6}\b")  # грубое приближение тикеров
 
 
-def preprocess_text(text: str) -> str:
-    """Базовая предобработка текста новости.
+def _decode_entity(match: re.Match[str]) -> str:
+    entity = match.group(0)
+    # html.unescape alone can decode a known prefix of an unknown entity
+    # (e.g. &notareal;). Only decode complete known names or numeric references.
+    if entity.startswith("&#") or entity[1:] in html5:
+        return unescape(entity)
+    return entity
 
-    Шаги:
-    - приведение к нижнему регистру
-    - удаление HTML-тегов (грубое)
-    - замена тикеров специальным токеном
-    - удаление спецсимволов и цифр
-    - токенизация и лемматизация
-    - удаление стоп-слов
+
+def preprocess_text(text: str) -> str:
+    """Apply minimal-v1: entities, markup, lowercase and whitespace to stability.
+
+    Preserve negation, numbers, currencies and punctuation. Empty strings stay
+    empty; non-strings raise TypeError. No fitted state or NLTK resources needed.
     """
     if not isinstance(text, str):
-        return ""
-
-    txt = text.lower()
-
-    # простое удаление HTML тегов
-    txt = re.sub(r"<.*?>", " ", txt)
-
-    # замена тикеров
-    txt = TICKER_PATTERN.sub(" <TICKER> ", txt)
-
-    # удаление цифр и пунктуации
-    txt = txt.translate(str.maketrans("", "", string.digits))
-    txt = txt.translate(str.maketrans("", "", string.punctuation))
-
-    tokens = nltk.word_tokenize(txt)
-    tokens = [LEMMATIZER.lemmatize(t) for t in tokens if t not in STOPWORDS and len(t) > 2]
-
-    return " ".join(tokens)
+        raise TypeError(f"text must be str, got {type(text).__name__}")
+    while True:
+        decoded = _ENTITY_PATTERN.sub(_decode_entity, text)
+        without_markup = _MARKUP_PATTERN.sub(" ", decoded)
+        normalized = " ".join(without_markup.lower().split())
+        if normalized == text:
+            return normalized
+        text = normalized
 
 
 def clean_news_data(df: pd.DataFrame, text_col: str = "text") -> pd.DataFrame:
