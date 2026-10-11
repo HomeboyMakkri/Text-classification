@@ -55,5 +55,20 @@ git diff --check
 PYTHONPATH=../src ../venv/bin/python -m finnews_sentiment.data.prepare_day02
 ```
 
-На checkpoint D2-05 артефакты подготовлены; итоговые выводы и полная приёмка
-Day02 относятся к D2-06.
+Day02 завершён 2026-10-11: notebook содержит D2-01…D2-06 и сохранённые outputs.
+Раздел D2-06 создаёт `reports/day02/observations.md` с фактическими выводами,
+ручным разбором девяти реальных предложений и ограничениями policy.
+CLI создаёт только CSV и три JSON; observations воспроизводится запуском notebook.
+
+Проверки приёмки: pytest — 53 passed, 46 subtests passed; Pyright sources и
+notebook exports — 0 errors/warnings; compileall и diff check passed.
+Notebook выполнен в двух чистых venv kernels (cwd=root и cwd=notebooks):
+по 9/9 code cells, 0 errors. Sandbox запрещает необходимые kernel sockets;
+проверенный запуск потребовал разрешённого выхода из sandbox.
+Все пять локальных артефактов совпали по bytes между двумя прогонами.
+
+Итоговый dataset `(3453, 5)`, excluded=0, changed retained texts=3447;
+class counts 420/2146/887 сохранены. По 5 raw/clean duplicate groups,
+новых совпадений и conflicts нет. Ручная проверка не доказывает семантическую
+корректность всего корпуса; training и оценка macro F1 ещё не выполнялись.
+Day03 требует группового split и fit TF-IDF только на train.

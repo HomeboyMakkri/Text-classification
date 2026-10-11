@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01 завершён; текущий этап — **day02**, начиная с контракта D2-01.
+Day01 и Day02 завершены; следующий этап — детализация **day03** перед реализацией.
 Transformer fine-tuning, API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
