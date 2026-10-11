@@ -2,7 +2,7 @@
 
 ## Порядок работы
 
-Day01 завершён 2026-10-09. D2-01…D2-04 завершены 2026-10-11; следующий пункт — D2-05.
+Day01 завершён 2026-10-09. D2-01…D2-05 завершены 2026-10-11; следующий пункт — D2-06.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -213,7 +213,7 @@ execution проверять отдельно. Notebook должен работ�
 
 ### D2-05 — сохранение processed dataset и provenance
 
-- [ ] Добавить явную повторяемую команду подготовки и сохранение результатов.
+- [x] Добавить явную повторяемую команду подготовки и сохранение результатов.
 - Зависит от D2-04. Вход: локальный canonical CSV и зафиксированная policy;
   выход: `data/processed/financial_phrasebank_75agree.csv` и `reports/day02/`.
 - Команда вызывает общий preprocessing, не дублирует его и не скачивает данные.
@@ -228,7 +228,20 @@ execution проверять отдельно. Notebook должен работ�
 - Самопроверка: почему одного processed CSV недостаточно для воспроизводимости?
 - Промпт: «Выполни только D2-05 из PLAN.md: явная offline подготовка, сохранение
   processed dataset и provenance. Обнови notebook и свидетельство; общий checkpoint».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-11): offline `data.prepare_day02` сверяет локальный архив,
+  canonical CSV и class/source contract до записи, вызывает общий preprocessing
+  и блокирующую conflicts финализацию. Сохранены processed CSV `(3453, 5)`
+  (929290 bytes) и preprocessing/duplicates/provenance JSON с source/runtime/policy,
+  mapping и checksums; excluded=0, raw/clean repeats=5/5, conflicts=0.
+  CSV SHA-256: `39dda898a281dc3294be081917b0681524e73edb60f00913183c67714da0c448`.
+  Семь новых pytest cases; полный suite 53 passed, 46 subtests passed.
+  Pyright sources + notebook exports: 0 errors/warnings; compileall/diff check
+  passed. Реальная CLI выполнена offline; CSV roundtrip и одинаковые bytes всех
+  outputs при повторном запуске подтверждены. Raw/interim checksums неизменны.
+  Два clean venv kernels (cwd=root/notebooks): по 7/7 code cells, 0 errors,
+  outputs сохранены; артефакты совпали между cwd. Kernels вне sandbox из-за sockets.
+  `.gitignore`: `/data/` исключает корневые артефакты, не новые src/data modules;
+  все четыре артефакта ignored. Команды и ограничения описаны в docs/day02.md.
 
 ### D2-06 — ручная проверка и итоговый clean-kernel checkpoint
 
@@ -263,7 +276,7 @@ execution проверять отдельно. Notebook должен работ�
 
 ## Шаблон запроса для следующего чата
 
-> Выполни D2-05 из PLAN.md. Объясни цель, ML/NLP понятия и tradeoffs. Реализуй только
+> Выполни D2-06 из PLAN.md. Объясни цель, ML/NLP понятия и tradeoffs. Реализуй только
 > этот шаг, обнови notebook и свидетельство в PLAN. Запусти нужные проверки,
 > назови ограничения и предложи commit message; не делай commit.
 

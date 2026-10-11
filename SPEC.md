@@ -286,6 +286,42 @@ clean text, поэтому clean groups включают raw groups. Реали�
 отсутствует; сохранение repeats может влиять на веса примеров, это ограничение
 текущей policy, а не скрытая балансировка классов.
 
+### Артефакты и offline подготовка (D2-05)
+
+`data.prepare_day02.prepare_day02(root: Path) -> Day02Artifacts` проверяет локальный
+архив по pinned checksum, сверяет canonical CSV с конвертацией member и expected
+row count, затем вызывает `preprocess_news` и `prepare_labeled_news`.
+Download отсутствует; при отсутствии архива/CSV требуется отдельная подготовка
+источника. Schema/source/conflict errors возникают до записи outputs.
+
+Явная команда из корня:
+`PYTHONPATH=src venv/bin/python -m finnews_sentiment.data.prepare_day02`.
+CLI также принимает `--root`; default root определяется по расположению модуля.
+Raw/interim/config читаются, не перезаписываются.
+
+Выходы (локальные, исключены из Git существующим `.gitignore`):
+
+- `data/processed/financial_phrasebank_75agree.csv`: UTF-8, без pandas index,
+  пять колонок §7 в фиксированном порядке, integer source IDs/label IDs,
+  сохранённые исходные тексты/метки, строковый `text_clean`.
+- `reports/day02/preprocessing.json`: все поля PreprocessingReport, включая
+  исключённые source IDs/причины, class counts и changed retained IDs.
+- `reports/day02/duplicates.json`: raw/clean groups с source IDs и метками,
+  counts повторов сверх первого, новых clean groups и conflicts.
+- `reports/day02/provenance.json`: источник/revision/subset/license/citation,
+  archive/member/encoding, checksums archive/canonical/config/processed CSV,
+  относительные пути, policy version, duplicate/ID policy, class order/mapping,
+  output schema/row count и фактические Python/pandas/NumPy versions.
+
+CSV roundtrip до записи проверяется с явными dtypes для текстовых/числовых полей
+и `keep_default_na=False`: строки `NA`, `nan`, numeric-only text не должны
+менять смысл при чтении. При неизменных входах, policy и runtime повторный
+запуск даёт одинаковые bytes всех четырёх outputs (без текущего timestamp).
+Перед записью проверяется неизменность прочитанных raw/interim bytes.
+Запись четырёх файлов не является единой транзакцией; I/O failure во время
+записи может потребовать повторного запуска. Training, splits и inference
+на этом шаге не выполняются. Команда/инструкции сохраняются в Git.
+
 ### Учебный checkpoint D2-01
 
 `notebooks/day02_preprocessing.ipynb` содержит root/src setup, загрузку реального
