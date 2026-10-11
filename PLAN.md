@@ -2,7 +2,7 @@
 
 ## Порядок работы
 
-Day01 завершён 2026-10-09. D2-01…D2-03 завершены 2026-10-11; следующий пункт — D2-04.
+Day01 завершён 2026-10-09. D2-01…D2-04 завершены 2026-10-11; следующий пункт — D2-05.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -180,7 +180,7 @@ execution проверять отдельно. Notebook должен работ�
 
 ### D2-04 — числовые метки и duplicate/conflict policy
 
-- [ ] Добавить `label_id` и диагностику групп дубликатов до и после очистки.
+- [x] Добавить `label_id` и диагностику групп дубликатов до и после очистки.
 - Зависит от D2-03. Mapping неизменен: `negative=0`, `neutral=1`, `positive=2`;
   строковый `sentiment` сохраняется. Unknown labels не получают fallback ID.
 - В SPEC уточнить policy: повторы с одной меткой сохраняются и учитываются;
@@ -197,7 +197,19 @@ execution проверять отдельно. Notebook должен работ�
 - Самопроверка: означает ли `positive=2`, что он вдвое больше `neutral=1`?
 - Промпт: «Выполни только D2-04 из PLAN.md: numeric labels и duplicate/conflict
   policy с диагностикой. Обнови SPEC, notebook и свидетельство; общий checkpoint».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-11): `features/labels_duplicates.py` добавляет fixed
+  int64 mapping и typed raw/clean groups с source IDs, метками и conflict/new
+  flags. `prepare_labeled_news` сохраняет repeats и блокирует conflicts через
+  exception с `.report`; SPEC фиксирует policy и group-aware boundary Day03.
+  Новые pytest cases: 20 passed; полный suite 46 passed, 46 subtests passed;
+  старые unittest tests не изменены. Pyright sources/notebook exports:
+  0 errors/warnings; compileall и diff check passed. Реальные данные:
+  `(3453, 4)` → `(3453, 5)`, raw/clean по 5 duplicate groups и 5 repeats
+  сверх первого, new clean groups=0, raw/clean conflicts=0; все строки сохранены.
+  Два чистых venv kernels (cwd=root/notebooks): по 6/6 code cells, 0 errors;
+  outputs сохранены, исходные DataFrame/CSV неизменны. Kernels потребовали
+  разрешённый запуск вне sandbox из-за sockets. Splits и запись artifacts
+  не добавлены; дубликаты требуют группового split в Day03.
 
 ### D2-05 — сохранение processed dataset и provenance
 
@@ -251,7 +263,7 @@ execution проверять отдельно. Notebook должен работ�
 
 ## Шаблон запроса для следующего чата
 
-> Выполни D2-04 из PLAN.md. Объясни цель, ML/NLP понятия и tradeoffs. Реализуй только
+> Выполни D2-05 из PLAN.md. Объясни цель, ML/NLP понятия и tradeoffs. Реализуй только
 > этот шаг, обнови notebook и свидетельство в PLAN. Запусти нужные проверки,
 > назови ограничения и предложи commit message; не делай commit.
 

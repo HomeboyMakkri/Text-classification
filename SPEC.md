@@ -251,6 +251,41 @@ API D2-03: `preprocess_news(df: DataFrame) -> tuple[DataFrame, PreprocessingRepo
 report. Для нового кода использовать `preprocess_news`. `add_basic_features`
 остаётся заготовкой и в Day02 notebook не вызывается.
 
+### Метки и duplicate/conflict policy (D2-04)
+
+`features/labels_duplicates.py` содержит фиксированный mapping из CLASS_ORDER:
+`negative=0`, `neutral=1`, `positive=2`. Это category IDs, не ordinal scores.
+`add_label_ids(df) -> DataFrame` возвращает копию с integer `label_id`, сохраняет
+строковый `sentiment` и порядок; unknown/missing labels — ошибки без fallback.
+Mapping не зависит от порядка строк и набора присутствующих классов.
+
+`analyze_duplicates(processed_df) -> DuplicateReport` проверяет четыре колонки
+D2-03, непустые строковые тексты, классы и уникальные nonnegative integer source IDs.
+Отчёт содержит `raw_groups` и `clean_groups`: только группы размера >=2,
+в порядке первого появления. В `DuplicateGroup` сохраняются ключ `text`,
+source IDs и соответствующие им метки в порядке входа. `conflicting` означает
+наличие нескольких меток. `new_after_cleaning` в clean group означает, что
+несколько разных raw texts превратились в одинаковый clean text; группа может
+содержать также уже существовавшие raw duplicates.
+`raw_duplicate_rows`/`clean_duplicate_rows` считают строки сверх первой в каждой
+группе, независимо от метки; raw/clean counts нельзя складывать — они пересекаются.
+Диагностика не меняет данные и доступна даже при conflicts.
+
+`prepare_labeled_news(processed_df) -> tuple[DataFrame, DuplicateReport]`
+добавляет `label_id` к результату D2-03, сохраняя все строки, включая одинаковые
+тексты с одной меткой. При raw или clean conflicts вызывает
+`DuplicateLabelConflictError(ValueError)` с полным отчётом в `.report`.
+Никакого majority vote, удаления конфликтной группы или выбора первой метки.
+Будущая команда финальной подготовки D2-05 должна использовать этот API,
+чтобы unresolved conflicts блокировали сохранение финального dataset.
+
+Policy совпадений определяется точным равенством raw/clean strings, без fuzzy
+matching. В Day03 вся группа совпадающих raw или clean texts должна оказаться
+в одном split. Для результатов `minimal-v1` одинаковые raw texts имеют одинаковый
+clean text, поэтому clean groups включают raw groups. Реализация split в Day02
+отсутствует; сохранение repeats может влиять на веса примеров, это ограничение
+текущей policy, а не скрытая балансировка классов.
+
 ### Учебный checkpoint D2-01
 
 `notebooks/day02_preprocessing.ipynb` содержит root/src setup, загрузку реального
