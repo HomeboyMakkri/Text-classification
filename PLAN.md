@@ -227,7 +227,7 @@ execution проверять отдельно. Notebook должен работ�
   фактические изменения количества строк и ограничения минимальной policy.
 - Выход: законченный `day02_preprocessing.ipynb` с outputs и
   `reports/day02/observations.md`, отдельный preprocessing step для будущих дней.
-- Проверка: полный unittest suite, обязательный type gate, compileall,
+- Проверка: полный suite через pytest, обязательный type gate, compileall,
   `git diff --check`, реальная offline подготовка и clean-kernel notebook
   сверху вниз из корня и `notebooks/`. Зафиксировать результаты отдельно.
 - Приёмка: стабильная очистка, явные исключения, согласованные class IDs,
@@ -265,3 +265,15 @@ execution проверять отдельно. Notebook должен работ�
   word count без неподдерживаемого в stubs list-string accessor.
 - [x] Добавить scripts/check_types.py с проверкой code cells всех notebooks и настройки VS Code.
 - Проверки: Pyright sources и notebook export — 0 errors, 0 warnings, 0 informations; 12/12 unit tests; compileall и diff check прошли. Исправленный notebook повторно выполнен в чистом kernel, outputs обновлены.
+
+## Дополнение — pytest для новых тестов
+
+- [x] Установить pytest в существующий `venv/` и закрепить `pytest==9.1.1`
+  в `requirements-dev.txt` (2026-10-11).
+- Все новые тесты писать с pytest; существующие unittest tests сохранять.
+  Правило и основная команда запуска закреплены в AGENTS.md.
+- Общая проверка suite: `venv/bin/python -m pytest tests -v`;
+  исторические unittest свидетельства выше остаются фактическими результатами
+  своих этапов. Для следующих этапов использовать pytest, включая D2-06.
+- Свидетельство: pytest 9.1.1 — 26 passed, 46 subtests passed; существующие
+  test files не изменены. `git diff --check` passed.

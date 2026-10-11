@@ -44,6 +44,9 @@
 - Покрывай тестами содержательные границы: неверная схема, неизвестный класс,
   пропуски, пустые тексты, duplicate/conflicting labels, воспроизводимость.
   Для документов и простых обратимых правок отдельные тесты не нужны.
+- Все новые тесты писать с pytest: test functions, обычные `assert`,
+  `pytest.raises`, fixtures и parametrization по необходимости. Существующие
+  unittest tests не переписывать; pytest запускает их вместе с новыми тестами.
 - Уважай существующие изменения. Не делай reset/clean, не перезаписывай результаты
   работающего notebook и не прерывай его kernel/process.
 
@@ -79,7 +82,7 @@
 
 ```bash
 venv/bin/python scripts/check_types.py
-venv/bin/python -m unittest discover -s tests -v
+venv/bin/python -m pytest tests -v
 venv/bin/python -m compileall -q src tests
 git diff --check
 # Подготовка данных (network только при отсутствии локального архива):
@@ -90,7 +93,7 @@ venv/bin/jupyter notebook notebooks/day01_eda.ipynb
 
 Исполнение notebook через nbconvert/nbclient требует запуска kernel; недоступность
 локальных sockets в sandbox — ограничение проверки, а не повод менять production code.
-Pyright и pandas-stubs закреплены в requirements-dev.txt. После каждого изменения
+Pytest, Pyright и pandas-stubs закреплены в requirements-dev.txt. После каждого изменения
 Python или code cells обязательно выполняй `venv/bin/python scripts/check_types.py`:
 она проверяет src/tests/scripts и временно экспортированный код всех notebooks.
 Обычная команда pyright не проверяет .ipynb. Не отмечай шаг завершённым при type errors;
