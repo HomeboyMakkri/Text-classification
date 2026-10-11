@@ -233,6 +233,24 @@ processed CSV и reports записываются только явным дей
 в D2-04 без автоматического выбора метки. Day03 должен исключить пересечение
 групп совпадающих raw/clean texts между splits.
 
+API D2-03: `preprocess_news(df: DataFrame) -> tuple[DataFrame, PreprocessingReport]`.
+Вызывать на canonical CSV в исходном порядке: функция не может восстановить
+позиции уже переставленных/выбранных строк. Повторяющиеся имена колонок запрещены;
+произвольный, в том числе неуникальный pandas index допустим и не используется как ID.
+`PreprocessingReport` содержит policy, `n_input`, `n_retained`, `n_excluded`,
+`excluded_rows` (source ID + tuple всех причин), `reason_counts`,
+`class_counts_before`, `class_counts_after`, `missing_sentiment_before` и
+`changed_source_row_ids` — IDs сохранённых строк, где `text_clean != text`.
+Все причины представлены в counts, включая нулевые. Counts классов имеют
+порядок `negative`, `neutral`, `positive`; missing labels учитываются отдельно.
+При полностью исключённом входе `EmptyProcessedDatasetError(ValueError)`
+сохраняет диагностику в `.report`. `dataclasses.asdict(report)` даёт структуру
+для будущего сохранения отчётов, без записи файлов на этом шаге.
+Прежний `clean_news_data` делегирует обработку этому API и возвращает только
+таблицу; при исключениях выдаёт warning с counts и рекомендацией получить полный
+report. Для нового кода использовать `preprocess_news`. `add_basic_features`
+остаётся заготовкой и в Day02 notebook не вызывается.
+
 ### Учебный checkpoint D2-01
 
 `notebooks/day02_preprocessing.ipynb` содержит root/src setup, загрузку реального

@@ -2,7 +2,7 @@
 
 ## Порядок работы
 
-Day01 завершён 2026-10-09. D2-01 и D2-02 завершены 2026-10-11; следующий пункт — D2-03.
+Day01 завершён 2026-10-09. D2-01…D2-03 завершены 2026-10-11; следующий пункт — D2-04.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -145,7 +145,7 @@ execution проверять отдельно. Notebook должен работ�
 
 ### D2-03 — обработка таблицы и отчёт об исключениях
 
-- [ ] Реализовать preprocessing DataFrame с явной валидацией и отчётом.
+- [x] Реализовать preprocessing DataFrame с явной валидацией и отчётом.
 - Зависит от D2-02. Вход: canonical DataFrame `(N, columns)`; выход: новая таблица
   с `source_row_id`, `text_clean` и отчёт о принятых/исключённых строках.
 - Не менять исходный DataFrame, тексты, метки и относительный порядок строк.
@@ -163,7 +163,20 @@ execution проверять отдельно. Notebook должен работ�
 - Самопроверка: почему отсутствие текста отличается от строки `"nan"`?
 - Промпт: «Выполни только D2-03 из PLAN.md: добавь preprocessing таблицы и
   отчёт об исключениях. Обнови notebook и свидетельство, выполни общий checkpoint».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-11): `preprocess_news` возвращает новую таблицу из
+  четырёх колонок и typed `PreprocessingReport`; source IDs — позиции до
+  фильтрации. Ошибки schema/types/classes явные; missing/blank/empty-clean
+  исключаются с source IDs и всеми причинами, без двойного счёта строк.
+  Полностью исключённый dataset вызывает `EmptyProcessedDatasetError` с report.
+  `clean_news_data` делегирует тому же API и предупреждает об исключениях.
+  Пять новых table tests; полный offline suite 26/26 passed. Итоговый Pyright
+  sources + notebook code cells: 0 errors/warnings; compileall/diff check passed.
+  Реальный CSV: `(3453, 2)` → `(3453, 4)`, retained=3453, excluded=0,
+  все reason counts=0, changed retained texts=3447; class counts неизменны.
+  Исходный DataFrame и SHA-256 CSV неизменны. Два clean venv kernels через
+  nbclient (cwd=root/notebooks): по 5/5 code cells, 0 errors; outputs сохранены.
+  Для kernels потребовался разрешённый выход из sandbox из-за sockets.
+  Numeric labels, duplicate diagnostics и запись processed artifacts не добавлены.
 
 ### D2-04 — числовые метки и duplicate/conflict policy
 
@@ -238,7 +251,7 @@ execution проверять отдельно. Notebook должен работ�
 
 ## Шаблон запроса для следующего чата
 
-> Выполни D2-03 из PLAN.md. Объясни цель, ML/NLP понятия и tradeoffs. Реализуй только
+> Выполни D2-04 из PLAN.md. Объясни цель, ML/NLP понятия и tradeoffs. Реализуй только
 > этот шаг, обнови notebook и свидетельство в PLAN. Запусти нужные проверки,
 > назови ограничения и предложи commit message; не делай commit.
 
