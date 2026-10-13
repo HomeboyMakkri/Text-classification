@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01 и Day02 завершены; **day03** детализирован в §8, реализация ещё не начата.
+Day01 и Day02 завершены; **day03** детализирован в §8, реализация идёт по PLAN.
 Transformer fine-tuning, API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -393,6 +393,33 @@ Day03 использует проверенный результат Day02, не
 Все пути относительно корня проекта, числовые значения
 и обязательные keys валидируются явно. Прежний model_path не требует записи
 joblib на Day03. Effective config сохраняет также используемые defaults.
+
+API D3-01: `data.baseline_config.load_baseline_config(path: Path) -> BaselineConfig`
+и `data.load_processed.load_processed_news(csv_path: Path, provenance_path: Path,
+dataset_config_path: Path) -> DataFrame`. `BaselineConfig` — typed dataclass:
+пути — относительные `Path`, настройки estimators — TypedDict; JSON ngram array
+становится tuple. Это проверка config, не создание Pipeline. Fixed policy/settings
+и schema keys проверяются явно, числовые настройки — на тип/диапазон/finite,
+seed — nonnegative integer в допустимом диапазоне и одинаковый для LogReg.
+`validate_processed_news(df: DataFrame) -> None` проверяет таблицу без изменения
+её значений/index/порядка; pandas index не используется как source ID.
+
+Runtime D3-01: Python 3.14.6, scikit-learn 1.9.1, SciPy 1.18.1, joblib 1.6.0,
+threadpoolctl 3.7.0; существующие Day01 pins сохраняются в requirements-day03.txt.
+В закреплённой версии LogReg L2 задаётся `l1_ratio=0.0` (deprecated `penalty`
+не передаётся). Проверка runtime — импорт и согласованность зависимостей, без fit.
+
+Loader сверяет bytes processed CSV и dataset config с provenance, источник
+со всеми полями dataset config, metadata schema/rows/path, class order/mapping,
+duplicate/ID policy и обязательные versions. Archive hash сверяется с config;
+canonical hash проверяется на корректный формат. Raw/interim bytes loader
+не перечитывает: связь с ними основана на проверенном Day02 provenance, это
+не повторная проверка содержимого архива. CSV records имеют ровно пять полей;
+заголовок проверяется до pandas, чтобы duplicate columns не переименовывались
+молча. Integer поля сначала читаются как строки с keep_default_na=False,
+проверяются на integer literals и затем явно приводятся к int64: float/boolean
+IDs и missing не должны усекаться или маскироваться. После этого проверяются
+все table invariants и верхняя граница source IDs относительно source row count.
 
 ### Group-aware splits (D3-02)
 

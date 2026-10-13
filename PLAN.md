@@ -3,7 +3,7 @@
 ## Порядок работы
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
-Day03 детализирован; следующий исполнимый пункт — D3-01 (ещё не начат).
+Day03: D3-01 завершён 2026-10-14; следующий исполнимый пункт — D3-02.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -280,9 +280,9 @@ execution проверять отдельно. Notebook должен работ�
 
 ## Day03 — baseline классификации
 
-Все пункты ниже pending. Один ID — один самостоятельный промпт агенту;
-выполнять последовательно D3-01 → D3-07. Это детализация
-`classification_day03.txt` по SPEC §8, без начала реализации.
+Статусы и свидетельства указаны ниже. Один ID — один самостоятельный промпт
+агенту; выполнять последовательно D3-01 → D3-07. Это реализация
+`classification_day03.txt` по SPEC §8; D3-02…D3-07 ещё не начаты.
 Вход дня — проверенный processed dataset Day02 `(N, 5)`; выход — обученный
 TF-IDF/LogisticRegression Pipeline, ориентир DummyClassifier и сохранённая
 baseline reference на validation. Held-out test выделяется, но не оценивается
@@ -300,7 +300,7 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ### D3-01 — ML runtime, проверка входа и notebook setup
 
-- [ ] Подготовить минимальное окружение Day03 и проверенный вход обучения.
+- [x] Подготовить минимальное окружение Day03 и проверенный вход обучения.
 - Зависит от D2-06. Вход: processed CSV, `reports/day02/provenance.json`,
   SPEC §8 и стартовый `configs/train_baseline.json`.
 - Проверить доступность scikit-learn в текущем `venv/`; добавить только нужные
@@ -325,7 +325,27 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 - Промпт: «Выполни только D3-01 из PLAN.md по SPEC §8: ML runtime, config,
   проверенный loader и начальный day03 notebook. Не начинай split/training.
   Выполни общий checkpoint и запиши свидетельство».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-14): существующий venv уже содержал scikit-learn 1.9.1,
+  SciPy 1.18.1, joblib 1.6.0 и threadpoolctl 3.7.0; imports и pip check прошли,
+  переустановка/обновление не требовались. Версии закреплены в
+  requirements-day03.txt с сохранением Day01 pins. Config исправлен на реальные
+  paths, text_clean/label_id, seed/fractions и явные estimator settings; L2
+  в закреплённом API задан через l1_ratio=0.0 без deprecated penalty.
+  Typed BaselineConfig и read-only loader/validator проверяют provenance/hash,
+  CSV schema/records/IDs/mapping/classes, raw→clean consistency и conflicts.
+  73 новых offline pytest cases passed; полный suite: 126 passed,
+  46 subtests passed. Pyright sources + exports всех трёх notebooks:
+  0 errors/warnings; compileall и diff check passed. Реальный processed CSV
+  загрузился `(3453, 5)`, counts negative/neutral/positive=420/2146/887,
+  raw/clean repeats=5/5, conflicts=False; checksum совпал с provenance
+  (`39dda898a281dc3294be081917b0681524e73edb60f00913183c67714da0c448`).
+  Повторная загрузка сохранила значения/dtypes/порядок; checksums шести
+  доступных inputs, включая raw/interim, неизменны. Новый day03 notebook
+  исполнен в двух чистых kernels `text-classification` с venv interpreter
+  (cwd=root/notebooks): по 4/4 code cells, 0 errors, outputs сохранены.
+  Loader не перечитывает raw/interim archive содержимое; связь с источником
+  подтверждается проверенным Day02 provenance. Split, estimators, fit,
+  predictions и metrics не реализованы; source/model templates не изменены.
 
 ### D3-02 — воспроизводимый stratified group-aware split
 
@@ -486,9 +506,9 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ## Шаблон запроса для следующего чата
 
-> Выполни только D3-01 из PLAN.md по SPEC §8 и AGENTS.md.
-> Подготовь ML runtime, config, проверенный loader и начальный day03 notebook.
-> Выполни общий checkpoint, обнови PLAN свидетельством; не начинай D3-02.
+> Выполни только D3-02 из PLAN.md по SPEC §8 и AGENTS.md.
+> Реализуй reproducible stratified group-aware train/validation/test split.
+> Выполни общий checkpoint, обнови notebook/PLAN; не начинай D3-03 и не обучай модели.
 > Покажи diff stat, предложи commit message, не делай commit.
 
 При работе целым днём замените ID на day03. Крупные решения фиксируем в SPEC;

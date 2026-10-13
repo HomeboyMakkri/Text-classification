@@ -1,8 +1,37 @@
 {
-  "input_path": "data/processed/clean_news.csv",
-  "model_path": "models/baseline_logreg.joblib",
-  "text_col": "text",
-  "target_col": "sentiment",
+  "policy": "baseline-v1",
+  "input_path": "data/processed/financial_phrasebank_75agree.csv",
+  "provenance_path": "reports/day02/provenance.json",
+  "text_col": "text_clean",
+  "target_col": "label_id",
   "test_size": 0.2,
-  "random_state": 42
+  "validation_size": 0.2,
+  "random_state": 42,
+  "tfidf": {
+    "max_features": 5000,
+    "ngram_range": [1, 2],
+    "analyzer": "word",
+    "lowercase": false,
+    "stop_words": null,
+    "min_df": 1,
+    "max_df": 1.0,
+    "use_idf": true,
+    "smooth_idf": true,
+    "sublinear_tf": false,
+    "norm": "l2",
+    "token_pattern": "(?u)\\b\\w\\w+\\b",
+    "strip_accents": null
+  },
+  "logreg": {
+    "solver": "lbfgs",
+    "C": 1.0,
+    "l1_ratio": 0.0,
+    "max_iter": 1000,
+    "tol": 0.0001,
+    "class_weight": null,
+    "random_state": 42
+  },
+  "dummy": {"strategy": "most_frequent"},
+  "split_output_dir": "data/processed/day03",
+  "report_output_dir": "reports/day03"
 }
