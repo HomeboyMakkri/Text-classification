@@ -3,7 +3,7 @@
 ## Порядок работы
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
-Следующий этап — детализация Day03 перед реализацией D3-01.
+Day03 детализирован; следующий исполнимый пункт — D3-01 (ещё не начат).
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -278,11 +278,207 @@ execution проверять отдельно. Notebook должен работ�
   совпали по bytes между cwd. Kernels запускались с разрешённым выходом из
   sandbox из-за sockets. Day02 критерии подтверждены; Day03 не начат.
 
-## Roadmap day03–day07
+## Day03 — baseline классификации
+
+Все пункты ниже pending. Один ID — один самостоятельный промпт агенту;
+выполнять последовательно D3-01 → D3-07. Это детализация
+`classification_day03.txt` по SPEC §8, без начала реализации.
+Вход дня — проверенный processed dataset Day02 `(N, 5)`; выход — обученный
+TF-IDF/LogisticRegression Pipeline, ориентир DummyClassifier и сохранённая
+baseline reference на validation. Held-out test выделяется, но не оценивается
+до D5-04: это согласованное в SPEC §2 отличие от формулировки задания.
+
+Общий checkpoint: `notebooks/day03_baseline.ipynb`. Каждый пункт добавляет
+свой раздел «цель → теория → вызов кода → результат → интерпретация →
+самопроверка» с outputs на реальных локальных данных. Логика — в
+`src/finnews_sentiment/`, новые tests — pytest. После изменений Python/code cells
+обязательны `venv/bin/python scripts/check_types.py`, соответствующие offline
+tests, compileall и `git diff --check`; проверки реального dataset и execution
+notebook в чистых kernels из корня и `notebooks/` записываются отдельно.
+Без подтверждённого notebook checkpoint и нулевых type errors ID не закрывать.
+В свидетельствах указывать фактические результаты, а недоступные проверки — явно.
+
+### D3-01 — ML runtime, проверка входа и notebook setup
+
+- [ ] Подготовить минимальное окружение Day03 и проверенный вход обучения.
+- Зависит от D2-06. Вход: processed CSV, `reports/day02/provenance.json`,
+  SPEC §8 и стартовый `configs/train_baseline.json`.
+- Проверить доступность scikit-learn в текущем `venv/`; добавить только нужные
+  Day03 зависимости с проверенными pins в `requirements-day03.txt`, сохранив
+  runtime Day01. Не устанавливать весь будущий stack из `requirements.txt`.
+- Исправить baseline config по SPEC: реальный input path, `text_clean`,
+  `label_id`, seed, доли splits, параметры TF-IDF/LogReg и Dummy strategy.
+  Старые `clean_news.csv`, `text`, `sentiment`, `model_path` не определяют
+  новый training workflow; JSON читается явно, без config framework.
+- Реализовать typed loader/validation processed dataset: пять колонок §7,
+  IDs/метки/порядок, непустые тексты, fixed mapping, policy и checksums
+  provenance. Ошибки/пропуски/conflicts не исправлять через dropna/astype(str).
+  При отсутствии артефактов дать точную отдельную команду подготовки Day02.
+- Выход: loader, согласованный config, минимальный runtime и notebook с
+  root/src setup, загрузкой реального `(N, 5)` и объяснением потока данных.
+  Split, vectorizer fit и training на этом пункте не выполнять.
+- Проверка: missing files, неверные schema/types/mapping/IDs, пустые тексты,
+  checksum/policy mismatch, conflicts; roundtrip буквальных `NA`/`nan` и
+  numeric-only texts; импорт без network/training, неизменность входа.
+- Самопроверка: почему числовой label — категория? Почему text_clean уже готов,
+  а TF-IDF ещё не обучен? Зачем проверять provenance вместе с CSV?
+- Промпт: «Выполни только D3-01 из PLAN.md по SPEC §8: ML runtime, config,
+  проверенный loader и начальный day03 notebook. Не начинай split/training.
+  Выполни общий checkpoint и запиши свидетельство».
+- Свидетельство: пока отсутствует.
+
+### D3-02 — воспроизводимый stratified group-aware split
+
+- [ ] Разделить группы текстов на train, validation и held-out test.
+- Зависит от D3-01. Вход: проверенная таблица; выход: manifest
+  `source_row_id, group_id, split` и summary в памяти, таблицы трёх splits.
+- Реализовать split в `data/split_data.py`: группы по точному `text_clean`,
+  стабильный group ID = минимальный source ID, группы в порядке этого ID.
+  Проверить отсутствие raw/clean conflicts и согласованность raw → clean.
+- Stratify уникальные группы по их единственной метке: сначала test=20%,
+  затем validation=20% от оставшихся групп, seed=42 на обоих этапах.
+  Сохранить все исходные строки и их порядок внутри каждого split.
+- Показать фактические counts/доли строк и групп, counts/доли классов во всех
+  splits. Пропорции ≈64/16/20 относятся к группам, не к гарантированным row counts.
+  Недостаточное число групп/классов — информативная ошибка без fallback.
+- Проверка: покрытие всех source IDs ровно один раз, попарная непересекаемость
+  IDs/raw/clean texts, три класса в каждом split, одинаковый manifest при
+  повторе, сохранение same-label duplicates, ошибки conflicts/малых классов.
+- Notebook: таблица размеров/баланса, проверки disjointness, объяснение
+  train/validation/test и причины group split. Метрики моделей ещё не считать.
+- Самопроверка: почему обычный stratified row split допускает leakage?
+  Чем размер split по группам отличается от размера по строкам?
+- Промпт: «Выполни только D3-02 из PLAN.md: stable stratified group-aware
+  train/validation/test split по SPEC §8. Обнови day03 notebook, выполни
+  общий checkpoint; не обучай модели и не оценивай test».
+- Свидетельство: пока отсутствует.
+
+### D3-03 — конструкция TF-IDF/LogReg Pipeline и Dummy baseline
+
+- [ ] Создать необученные estimators с явно зафиксированными параметрами.
+- Зависит от D3-02. Вход: согласованный config; выход: новый unfitted
+  `Pipeline([('tfidf', ...), ('clf', ...)])` и DummyClassifier `most_frequent`.
+- Доработать `models/train_model.py` в пределах создания estimators:
+  TF-IDF max_features=5000, ngram_range=(1, 2), без stopword removal;
+  LogisticRegression по SPEC §8. Не использовать add_basic_features,
+  повторный preprocessing, TF-IDF fit всей таблицы или dense conversion.
+- Каждый вызов builder возвращает независимый estimator. Dummy принимает
+  простой constant feature array; общий интерфейс обучения появится в D3-04.
+- Проверить, что новые modules не скрыты правилом `.gitignore` `models/`;
+  при необходимости сузить его до `/models/` до проверки и добавления кода.
+  Старый training CLI пока не считать поддерживаемым; новый появится в D3-06.
+- Проверка: параметры/шаги Pipeline, отсутствие fitted attributes до fit,
+  независимость экземпляров и отсутствие training при import/build.
+- Notebook: показать config/estimators, объяснить unigram/bigram, vocabulary,
+  IDF и будущую sparse форму `(N_train, V)`, где `V <= 5000`; fit пока нет.
+  Разобрать ограничение стандартного tokenizer для валют/процентов/`n't`.
+- Самопроверка: почему Pipeline защищает границу fit/transform? Что теряется
+  при bag-of-n-grams? Почему сохранённая preprocessing пунктуация может не
+  попасть в vocabulary стандартного TF-IDF tokenizer?
+- Промпт: «Выполни только D3-03 из PLAN.md: builders TF-IDF/LogReg Pipeline
+  и DummyClassifier по SPEC §8. Обнови notebook и проверки; пока без fit».
+- Свидетельство: пока отсутствует.
+
+### D3-04 — обучение на train и aligned validation predictions
+
+- [ ] Обучить оба estimators только на train и предсказать validation.
+- Зависит от D3-03. Вход: таблицы D3-02 и estimators; выход: fitted Pipeline,
+  fitted Dummy, validation predictions `(N_valid,)` с source IDs.
+- Training API принимает готовые splits и не делит данные повторно.
+  `fit(train.text_clean, train.label_id)` для Pipeline; Dummy fit по train
+  labels. Validation проходит только predict/transform, held-out test —
+  только структурные проверки manifest, без transform/predict/score.
+- Отчёт: фактическая sparse форма `(N_train, V)`, число признаков,
+  classes_ и статус сходимости. ConvergenceWarning делает checkpoint
+  неподтверждённым до устранения/документированного исправления config.
+  Не подбирать параметры по validation и не обещать качество заранее.
+- Проверка: validation-only token отсутствует в vocabulary; vocabulary/IDF
+  не меняются после predict; predictions имеют валидные IDs классов,
+  длину/порядок source IDs; повторное обучение воспроизводимо в том же runtime;
+  неверные/пересекающиеся splits диагностируются до fit.
+- Notebook: реальные fit/predict, shapes и alignment; без списка ошибок,
+  подбора гиперпараметров, test metrics или сохранения inference bundle.
+- Самопроверка: что обучается в TF-IDF и LogReg? Чем transform отличается
+  от fit_transform? Почему vocab/IDF нельзя дообучить на validation?
+- Промпт: «Выполни только D3-04 из PLAN.md: обучение двух baseline estimators
+  на train и aligned validation predictions. Обнови notebook/свидетельство,
+  выполни общий checkpoint; не трогай test и не начинай tuning».
+- Свидетельство: пока отсутствует.
+
+### D3-05 — validation metrics и сравнение с Dummy
+
+- [ ] Оценить baseline и Dummy на одних и тех же validation rows.
+- Зависит от D3-04. Вход: aligned truth/predictions; выход: typed metrics
+  и таблица сравнения с фиксированным class order.
+- Реализовать reusable evaluation в `models/evaluate.py`: macro F1,
+  accuracy и precision/recall/F1/support для negative/neutral/positive.
+  Использовать labels=[0, 1, 2] и zero_division=0 явно; denominator=N_valid.
+- Проверка: известные true/pred arrays и независимый ручной расчёт metrics,
+  неизвестные IDs, пустые/разной длины массивы, отсутствие predicted класса;
+  support sums=N_valid, одинаковые validation IDs обеих моделей.
+- Notebook: фактические метрики без test, сравнение macro F1/accuracy,
+  влияние neutral majority и ограничения одного split. Плохое качество тоже
+  валидный baseline; не менять параметры по результатам этого пункта.
+  Confusion matrix и разбор ошибочных предложений остаются Day05.
+- Самопроверка: почему macro F1 может быть низким при высокой accuracy?
+  Что означает нулевой recall класса? Какие выводы одного split ненадёжны?
+- Промпт: «Выполни только D3-05 из PLAN.md: validation metrics baseline
+  и Dummy, fixed class order и учебная интерпретация. Обнови notebook,
+  выполни общий checkpoint; без tuning и test evaluation».
+- Свидетельство: пока отсутствует.
+
+### D3-06 — сохранение baseline reference и offline команда
+
+- [ ] Сохранить splits, predictions, metrics, config и provenance для Day04.
+- Зависит от D3-05. Вход: проверенные результаты D3-01…D3-05;
+  выход: артефакты SPEC §8 и явная offline команда воспроизведения.
+- Добавить единый runner, вызывающий общий loader/split/build/train/evaluate,
+  без дублирования логики в CLI/notebook. Явная команда из корня:
+  `PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.train_model --config configs/train_baseline.json`.
+- Сохранить manifest/summary, aligned validation CSV двух моделей, metrics,
+  effective config и provenance: source/policy/hash, seed/split algorithm,
+  параметры, class order/mapping и фактические runtime versions.
+  Метрики обязаны называться validation; test predictions/metrics отсутствуют.
+- Проверка: CSV/JSON roundtrip, повторный offline запуск даёт тот же split,
+  predictions и metrics в том же runtime; metrics пересчитываются из CSV,
+  все source IDs согласованы; raw/interim/processed checksums неизменны.
+- Notebook: вызвать runner, показать реальные пути и сверить сохранённые
+  результаты с D3-02…D3-05. Артефакты локальные, код/config/инструкция — в Git;
+  новые modules должны присутствовать в diff/status и проверке типов.
+  Joblib inference bundle/load/predict API остаются Day06.
+- Самопроверка: почему одного macro F1 недостаточно для сравнения экспериментов?
+  Почему одинаковые seed при изменённом dataset не гарантируют тот же split?
+- Промпт: «Выполни только D3-06 из PLAN.md: baseline reference artifacts,
+  provenance и offline runner/CLI по SPEC §8. Обнови notebook и свидетельство,
+  выполни общий checkpoint; без inference bundle и будущих experiments».
+- Свидетельство: пока отсутствует.
+
+### D3-07 — выводы и итоговая приёмка Day03
+
+- [ ] Подтвердить baseline как воспроизводимую точку отсчёта для Day04.
+- Зависит от D3-01…D3-06. Новые модели/features/подбор не добавлять.
+- Выход: полный `day03_baseline.ipynb` с outputs,
+  `reports/day03/observations.md` и инструкция `docs/day03.md`.
+- Выводы: фактические размеры/баланс splits, параметры и vocabulary size,
+  baseline/Dummy validation metrics, ограничения TF-IDF, repeats и одного
+  split; held-out test ещё не использован, рост качества не гарантируется.
+- Проверка: полный pytest suite, type gate, compileall, diff check;
+  отдельно реальная offline CLI/согласованность артефактов и notebook сверху
+  вниз в чистых kernels из корня и `notebooks/`, без download.
+- Приёмка: рабочий Pipeline обучается и предсказывает, group leakage нет,
+  validation metrics и baseline reference сохранены и воспроизводимы;
+  все пункты имеют проверенный notebook checkpoint и фактическое свидетельство.
+- Самопроверка: на каких данных Day04 вправе выбирать модель? Почему оценка
+  test сейчас меняет смысл будущей финальной оценки? Что baseline не доказывает
+  о работе на новых финансовых новостях?
+- Промпт: «Выполни только D3-07 из PLAN.md: выводы, документация и финальный
+  checkpoint Day03. Запиши реальные проверки; не начинай Day04 и не оценивай test».
+- Свидетельство: пока отсутствует.
+
+## Roadmap day04–day07
 
 | День | Подзадачи (все pending) | Результат / notebook |
 | --- | --- | --- |
-| 03 | D3-01 stable group-aware splits; D3-02 Dummy + TF-IDF/LogReg Pipeline; D3-03 validation metrics; D3-04 config/results/provenance | baseline reference, day03_baseline.ipynb |
 | 04 | D4-01 hypotheses/protocol; D4-02 n-grams; D4-03 LinearSVC; D4-04 hyperparameter CV; D4-05 comparison/selection | ≥3 controlled experiments, day04_experiments.ipynb |
 | 05 | D5-01 aligned predictions; D5-02 confusion matrix; D5-03 failure categories; D5-04 frozen final test/report | error analysis, day05_error_analysis.ipynb |
 | 06 | D6-01 artifact bundle; D6-02 load/predict API; D6-03 roundtrip consistency; D6-04 new-text demos | inference without fit, day06_inference.ipynb |
@@ -290,11 +486,12 @@ execution проверять отдельно. Notebook должен работ�
 
 ## Шаблон запроса для следующего чата
 
-> Детализируй Day03 из classification_day03.txt в PLAN.md по согласованному SPEC.
-> Разбей день на пункты размером на один промпт с зависимостями и проверками.
-> Не начинай реализацию; предложи commit message, не делай commit.
+> Выполни только D3-01 из PLAN.md по SPEC §8 и AGENTS.md.
+> Подготовь ML runtime, config, проверенный loader и начальный day03 notebook.
+> Выполни общий checkpoint, обнови PLAN свидетельством; не начинай D3-02.
+> Покажи diff stat, предложи commit message, не делай commit.
 
-При работе целым днём замените ID на day02. Крупные решения фиксируем в SPEC;
+При работе целым днём замените ID на day03. Крупные решения фиксируем в SPEC;
 вопросы пользователя можно обсуждать, не меняя scope реализации.
 
 ## Дополнение day01 — Pylance/Pyright quality gate

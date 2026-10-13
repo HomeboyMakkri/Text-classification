@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01 и Day02 завершены; следующий этап — детализация **day03** перед реализацией.
+Day01 и Day02 завершены; **day03** детализирован в §8, реализация ещё не начата.
 Transformer fine-tuning, API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -330,3 +330,206 @@ CSV roundtrip до записи проверяется с явными dtypes д
 неизменность таблицы и файла. Code cells выполняются в чистом venv kernel из
 корня и `notebooks/`; type gate проверяет их вместе с Python sources.
 Завершение D2-01 не означает, что очистка или processed dataset уже реализованы.
+
+## 8. Контракт day03 — воспроизводимый baseline (`baseline-v1`)
+
+### Цель, границы и порядок реализации
+
+Day03 строит первую рабочую модель и сохраняет точку отсчёта для Day04.
+`classification_day03.txt` требует train/test и test metrics. Применяется уже
+согласованное решение §2: на Day03 выделяются train/validation/held-out test,
+baseline оценивается на validation, финальный test — только после заморозки
+модели/параметров в D5-04. Validation metrics не называются test metrics.
+Структурная проверка размеров/классов test разрешена; его тексты не используются
+для fit, transform, predict, score, ручного анализа ошибок или выбора настроек.
+
+Поток данных: processed DataFrame `(N, 5)` → группы совпадающих текстов →
+train/validation/test → train-only TF-IDF `(N_train, V)` → LogReg → validation
+predictions `(N_valid,)` → metrics и сохранённая baseline reference.
+DummyClassifier обучается на тех же train labels и оценивается на тех же
+validation rows. Предсказания — category IDs, не probabilities или sentiment scores.
+
+Пункты PLAN: D3-01 runtime/input/config; D3-02 splits; D3-03 unfitted estimators;
+D3-04 fit/predict; D3-05 evaluation; D3-06 artifacts/runner; D3-07 приёмка.
+Не входят: новые preprocessing transformations, additional features, balancing,
+tuning/CV, другие классификаторы, test evaluation, error analysis и inference bundle.
+Стартовые train/predict — непринятые заготовки; новая реализация не должна
+использовать их скрытый row split, dropna, astype(str), повторную очистку
+или add_basic_features. `models/predict.py` остаётся вне scope Day03.
+
+### Runtime, вход и baseline config (D3-01)
+
+Работать в существующем `venv/`, без пересоздания и обновления всего stack.
+`requirements-day03.txt` включает Day01 runtime и минимальные проверенные
+дополнения для Day03 (scikit-learn и необходимые зависимости); фактические
+pins выбираются после проверки совместимости текущего Python/runtime.
+Future packages из исходного `requirements.txt` не устанавливаются автоматически.
+Импорт modules не читает dataset/resources, не скачивает и не обучает модель.
+
+Вход: `data/processed/financial_phrasebank_75agree.csv` и
+`reports/day02/provenance.json` по §7. Loader читает UTF-8 с явными текстовыми
+и integer dtypes, `keep_default_na=False`, затем проверяет:
+
+- ровно пять колонок и их порядок §7; непустой dataset, непустые строковые
+  text/text_clean, известные sentiments; все три класса представлены;
+- unique nonnegative integer source IDs в возрастающем исходном порядке,
+  integer label IDs и точное соответствие `negative=0, neutral=1, positive=2`;
+- policy `minimal-v1`, class order/mapping и schema/rows в provenance;
+  SHA-256 processed CSV совпадает с Day02 `output.sha256`, источник и revision
+  согласованы с `configs/dataset.json`; некорректный provenance — ошибка;
+- raw/clean duplicates не конфликтуют по меткам; одинаковый raw text имеет
+  одинаковый text_clean, иначе подготовка не согласована с policy.
+
+Missing files/schema/types/checksums, пустые тексты, unknown labels и conflicts
+вызывают информативную ошибку до split/fit. Никакого удаления строк/дубликатов,
+fallback mapping, преобразования missing в строки или изменения входных файлов.
+Day03 использует проверенный результат Day02, не запускает очистку повторно.
+При отсутствии входа пользователь запускает отдельную offline команду §7.
+
+`configs/train_baseline.json` становится реальным контрактом runner, а не
+неиспользуемым шаблоном: `input_path`, `provenance_path`, `text_col=text_clean`,
+`target_col=label_id`, `random_state=42`, `test_size=0.2`, `validation_size=0.2`
+(доля outer-train), TF-IDF/LogReg/Dummy параметры и output directories ниже.
+Все пути относительно корня проекта, числовые значения
+и обязательные keys валидируются явно. Прежний model_path не требует записи
+joblib на Day03. Effective config сохраняет также используемые defaults.
+
+### Group-aware splits (D3-02)
+
+Одна группа — точное совпадение `text_clean`; при `minimal-v1` она включает
+совпадающие raw texts. Ни fuzzy matching, ни deduplication не выполняются.
+group ID = минимальный `source_row_id` в группе; группы сначала сортируются по
+group ID, каждая имеет ровно один label ID. Ошибки raw → clean и conflicts
+блокируют split, не решаются выбором первой/большинства меток.
+
+Алгоритм `group-stratified-v1`:
+
+1. На уровне уникальных групп вызвать stratified train_test_split с
+   test_size=0.2, random_state=42, stratify по единственной метке группы.
+2. Оставшиеся outer-train groups снова упорядочить по group ID; тем же способом
+   выделить validation_size=0.2 от outer-train, random_state=42.
+3. Распространить назначение группы на все её строки. Manifest имеет одну строку
+   на retained source ID в исходном порядке; таблицы splits сохраняют этот порядок.
+
+Номинальные доли групп train/validation/test ≈64%/16%/20%. Rounding и разные
+размеры duplicate groups дают отличия в долях строк; не выдавать эти числа за
+точные размеры. Stratification сохраняет распределение классов приблизительно
+по группам; фактический баланс строк тоже показывается, без oversampling/weights.
+
+Инварианты: все source IDs покрыты ровно один раз; splits попарно disjoint по
+source IDs, raw texts и clean texts; каждая группа целиком в одном split;
+в каждом split есть три класса. Недостаточная возможность stratification или
+отсутствующий класс после split — ошибка с counts строк/групп по классам;
+не отключать stratification, не менять seed поиском удобного split.
+Одинаковые данные/config/runtime дают одинаковое назначение. Manifest фиксируется
+в D3-06 и повторно используется Day04/Day05, без нового случайного разделения.
+
+### Estimators и fit boundary (D3-03…D3-04)
+
+`models/train_model.py` создаёт `sklearn.pipeline.Pipeline` с шагами
+`tfidf` (TfidfVectorizer) и `clf` (LogisticRegression). Каждый builder возвращает
+новый unfitted estimator; D3-03 только строит его, D3-04 впервые вызывает fit.
+Параметры baseline фиксируются до просмотра validation metrics:
+
+| Компонент | Baseline settings |
+| --- | --- |
+| TF-IDF | max_features=5000, ngram_range=(1, 2), analyzer=word, lowercase=False (Day02 уже lower), stop_words=None, min_df=1, max_df=1.0 |
+| TF-IDF weighting | use_idf=True, smooth_idf=True, sublinear_tf=False, norm=l2; стандартный word token_pattern, strip_accents=None |
+| LogReg | solver=lbfgs, C=1.0, L2 regularization в API закреплённой версии, max_iter=1000, tol=1e-4, class_weight=None, random_state=42 |
+| Dummy | strategy=most_frequent; обучается на train label frequencies, без доступа к validation labels |
+
+Стандартный word tokenizer не сохраняет всю финансовую пунктуацию как features,
+игнорирует односимвольные tokens и может разбивать contractions. Сохранение `%`,
+валют и отрицаний при preprocessing не гарантирует их отдельного представления
+в TF-IDF. Это явно объясняется как ограничение baseline; custom tokenizer и
+изменение representation — будущая гипотеза, не автоматическое расширение Day03.
+
+Vocabulary и IDF fit только по train.text_clean; LogisticRegression fit по train
+features/label IDs. Матрица остаётся sparse, `(N_train, V)`, `V <= 5000`;
+`max_features` — верхняя граница, не обещание ровно 5000 столбцов.
+Validation проходит только через fitted Pipeline.predict/transform; vocabulary
+и IDF после predict не меняются. Если возникнут CV/experiments в Day04,
+TF-IDF должен fit внутри Pipeline каждого fold, с group-aware folds.
+
+Dummy получает constant feature array `(N_train, 1)`, predicts `(N_valid,)`.
+Это reference для majority-class поведения, не дополнительный обучаемый feature.
+Training API принимает готовые splits, не создаёт новые, не молча исключает строки
+и не смешивает training с evaluation. До fit проверяет schema, class coverage,
+group/source disjointness; обученные classes_ соответствуют `[0, 1, 2]`.
+Validation outputs сохраняют точную привязку к source IDs/порядку строк.
+
+Empty vocabulary, неверный config, malformed splits и nonconvergence — явные
+диагностики. ConvergenceWarning не скрывается: прежде чем закрыть пункт,
+разобраться с причиной и зафиксировать необходимую коррекцию solver/runtime
+settings, без выбора качества по validation/test. Score improvement не является
+критерием приёмки, сравнение с Dummy не гарантирует победу baseline.
+
+### Оценка на validation (D3-05)
+
+`models/evaluate.py` принимает aligned true/predicted label IDs; входы непусты,
+одной длины, принадлежат `[0, 1, 2]`. Основная метрика — macro F1 с явными
+labels=[0, 1, 2]; дополнительно accuracy и precision/recall/F1/support каждого
+класса в порядке `negative`, `neutral`, `positive`, zero_division=0 явно.
+Support sums=N_valid. Отсутствие predicted класса даёт нулевые значения по
+принятой policy и обсуждается, не исчезает из отчёта.
+
+Baseline и Dummy оцениваются на одной последовательности validation source IDs.
+Macro F1 даёт классам одинаковый вес; accuracy учитывает каждую строку и может
+скрыть слабость на редких классах. Повторяющиеся строки сохранены, поэтому
+row metrics взвешивают группы по их размеру. Один split не даёт оценки
+статистической устойчивости или гарантии качества на live financial news.
+Confusion matrix `(3, 3)` и ручной разбор ошибок остаются Day05 на validation;
+на Day03 не выполнять test metrics или настройку по найденным ошибкам.
+
+### Сохранение результатов и воспроизведение (D3-06)
+
+Единый явный runner читает config/проверенные данные, вызывает reusable функции
+split/build/train/predict/evaluate и сохраняет результаты. Notebook вызывает эти
+же функции/runner. CLI из корня:
+`PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.train_model --config configs/train_baseline.json`.
+Offline выполнение требует локальных Day02 artifacts; download отсутствует.
+
+| Артефакт | Содержимое |
+| --- | --- |
+| `data/processed/day03/splits.csv` | source_row_id, group_id, split (`train`, `validation`, `test`), исходный порядок |
+| `reports/day03/split_summary.json` | algorithm/seed/fractions, размеры строк/групп и class counts/доли каждого split, подтверждение disjointness |
+| `reports/day03/validation_predictions.csv` | source_row_id, true_label_id, baseline_pred_label_id, dummy_pred_label_id в validation порядке; тексты не дублируются |
+| `reports/day03/metrics.json` | evaluation_split=validation, N_valid, class order/mapping, baseline и Dummy metrics §8 |
+| `reports/day03/config.json` | effective config с параметрами estimators и splits, policy baseline-v1 |
+| `reports/day03/provenance.json` | source/revision/subset, Day02 policy и checksum/provenance, checksums config/processed CSV/manifest/predictions/metrics, seed/algorithm, vocabulary size, classes_, фактические Python/pandas/NumPy/SciPy/scikit-learn versions |
+
+Все outputs локальные согласно `.gitignore`. Python modules в `src/.../models/`
+должны оставаться в Git: существующее правило `models/` проверить и при
+необходимости сузить до `/models/` уже в D3-03, не игнорировать новый код
+в Git или type gate. Старый training CLI не является поддерживаемой командой
+Day03; его замена новым runner выполняется в D3-06.
+Baseline reference — сохранённые данные сравнения/протокол, а не Day06 inference
+bundle. Joblib serialization и load/predict API на Day03 не обязательны.
+Никаких test predictions, test metrics или обещанного прироста в артефактах.
+
+До записи проверить согласованность manifest/predictions/metrics и неизменность
+input bytes; CSV/JSON должны читаться обратно без изменения IDs/значений/порядка.
+Повторный запуск в том же runtime воспроизводит splits, predictions и metrics;
+не обещать идентичные binary model bytes между версиями/платформами. Для reports
+не включать timestamp в сравниваемое содержимое. Несколько записей файлов не
+являются общей транзакцией; I/O failure может потребовать повторного запуска.
+В Day04 новые результаты записывать отдельно, сохраняя baseline reference.
+
+### Notebook и приёмка (D3-07)
+
+`notebooks/day03_baseline.ipynb` имеет по разделу D3-01…D3-07 с целью, теорией,
+вызовом reusable кода, реальными outputs, интерпретацией и самопроверкой.
+Root/src setup предшествует imports; все переменные создаются выше использования.
+После каждого ID сохраняются outputs чистого kernel из корня и `notebooks/`
+на локальных данных, без зависимости от предыдущей истории kernel или download.
+
+Финальные `reports/day03/observations.md` и `docs/day03.md` описывают фактические
+split sizes, feature shapes, baseline/Dummy validation metrics, параметры,
+команды воспроизведения, границу test и ограничения. Рост macro F1, превосходство
+над Dummy и quality на live news не гарантируются и не являются acceptance gate.
+
+Приёмка: три непересекающихся group-aware splits; fit только на train; рабочие
+Pipeline и Dummy; aligned predictions/validation metrics; сохранённая reference;
+повторный offline run; type gate без ошибок и содержательные pytest tests;
+real-data checks и clean-kernel notebook подтверждены отдельно. Ни один пункт
+реализации не отмечается завершённым только на основании написанного кода.
