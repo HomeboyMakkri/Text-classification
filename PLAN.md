@@ -3,7 +3,7 @@
 ## Порядок работы
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
-Day03: D3-01 и D3-02 завершены 2026-10-14; следующий исполнимый пункт — D3-03.
+Day03: D3-01…D3-06 завершены 2026-10-14; следующий пункт — D3-07.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -276,13 +276,13 @@ execution проверять отдельно. Notebook должен работ�
   compileall и diff check passed. Два чистых venv kernels (cwd=root/notebooks):
   по 9/9 code cells, 0 errors; outputs сохранены. Все пять локальных артефактов
   совпали по bytes между cwd. Kernels запускались с разрешённым выходом из
-  sandbox из-за sockets. Day02 критерии подтверждены; Day03 не начат.
+  sandbox из-за sockets. Day02 критерии подтверждены.
 
 ## Day03 — baseline классификации
 
 Статусы и свидетельства указаны ниже. Один ID — один самостоятельный промпт
 агенту; выполнять последовательно D3-01 → D3-07. Это реализация
-`classification_day03.txt` по SPEC §8; D3-03…D3-07 ещё не начаты.
+`classification_day03.txt` по SPEC §8; D3-01…D3-07 завершены.
 Вход дня — проверенный processed dataset Day02 `(N, 5)`; выход — обученный
 TF-IDF/LogisticRegression Pipeline, ориентир DummyClassifier и сохранённая
 baseline reference на validation. Held-out test выделяется, но не оценивается
@@ -562,7 +562,7 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ### D3-07 — выводы и итоговая приёмка Day03
 
-- [ ] Подтвердить baseline как воспроизводимую точку отсчёта для Day04.
+- [x] Подтвердить baseline как воспроизводимую точку отсчёта для Day04.
 - Зависит от D3-01…D3-06. Новые модели/features/подбор не добавлять.
 - Выход: полный `day03_baseline.ipynb` с outputs,
   `reports/day03/observations.md` и инструкция `docs/day03.md`.
@@ -580,7 +580,25 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
   о работе на новых финансовых новостях?
 - Промпт: «Выполни только D3-07 из PLAN.md: выводы, документация и финальный
   checkpoint Day03. Запиши реальные проверки; не начинай Day04 и не оценивай test».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-14): `notebooks/day03_baseline.ipynb` завершён разделом
+  D3-07; clean-kernel execution из корня и `notebooks/` сохранён. Итоговая
+  notebook-проверка подтвердила 3453 строки/3448 групп, disjoint train/validation/
+  test по source ID/raw/clean text, manifest и predictions round-trip, metric
+  checksum, effective config и provenance. Splits: train 2210 строк/2206 групп,
+  validation 553/552, test 690/690; строковый баланс отрицательный/нейтральный/
+  положительный: train 269/1374/567, validation 67/344/142, test 84/428/178.
+  Train TF-IDF sparse shape — (2210, 5000); baseline validation accuracy/macro F1
+  0.813743/0.720965, Dummy — 0.622061/0.255667. Test только структурно включён
+  в manifest; test predictions, metrics, fit и tuning отсутствуют. Подготовлены
+  `reports/day03/observations.md` и `docs/day03.md` с интерпретацией, границами
+  применения и командами воспроизведения.
+  Проверки: offline CLI repeat дал побайтно идентичные шесть outputs;
+  `venv/bin/python -m pytest tests -v` — 165 passed, 46 subtests passed;
+  `venv/bin/python scripts/check_types.py` — 0 errors/warnings;
+  `venv/bin/python -m compileall -q src tests`, `venv/bin/python -m pip check`,
+  `git diff --check` прошли. Notebook исполнялся чистым kernel сверху вниз из
+  корня и `notebooks/`, без download. Полный протокол и ограничения — в
+  `reports/day03/observations.md`.
 
 ## Roadmap day04–day07
 

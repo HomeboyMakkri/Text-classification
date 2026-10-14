@@ -9,3 +9,8 @@ __pycache__/
 /data/
 /models/
 reports/
+!/reports/
+/reports/*
+!/reports/day03/
+/reports/day03/*
+!/reports/day03/observations.md
