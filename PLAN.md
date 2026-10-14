@@ -440,7 +440,7 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ### D3-04 — обучение на train и aligned validation predictions
 
-- [ ] Обучить оба estimators только на train и предсказать validation.
+- [x] Обучить оба estimators только на train и предсказать validation.
 - Зависит от D3-03. Вход: таблицы D3-02 и estimators; выход: fitted Pipeline,
   fitted Dummy, validation predictions `(N_valid,)` с source IDs.
 - Training API принимает готовые splits и не делит данные повторно.
@@ -462,7 +462,22 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 - Промпт: «Выполни только D3-04 из PLAN.md: обучение двух baseline estimators
   на train и aligned validation predictions. Обнови notebook/свидетельство,
   выполни общий checkpoint; не трогай test и не начинай tuning».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-14): `models.train_model.fit_baselines` принимает
+  готовый `NewsSplits`, валидирует manifest, схему, classes, group IDs и
+  попарную disjointness до создания estimators; повторного split нет. Pipeline
+  обучен на `train.text_clean/train.label_id`, Dummy — на train labels с
+  constant `(N_train, 1)` features. Test проверен структурно, в fit/predict/
+  transform не передавался. Возвращается aligned validation DataFrame с
+  `source_row_id` и двумя prediction columns; feature shape `(2210, 5000)`,
+  `classes_=[0,1,2]`, convergence `converged_no_warning`. Реальный checkpoint:
+  N_train=2210, N_valid=553; 5 706 validation-only terms отсутствуют в train
+  vocabulary, а повторный predict оставил vocabulary/IDF неизменными. Повторный
+  fit дал те же predictions. Unit tests проверяют train-only vocabulary,
+  sparse matrix, alignment, воспроизводимость, неизменность TF-IDF state и
+  malformed manifest до создания estimators. Notebook выполнен clean kernel
+  сверху вниз из корня и `notebooks/`, outputs сохранены, метрики не считались.
+  Полный suite: 150 passed, 46 subtests passed; Pyright source/notebook exports:
+  0 errors/warnings; compileall, `git diff --check`, `pip check` прошли.
 
 ### D3-05 — validation metrics и сравнение с Dummy
 
