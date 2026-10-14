@@ -481,7 +481,7 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ### D3-05 — validation metrics и сравнение с Dummy
 
-- [ ] Оценить baseline и Dummy на одних и тех же validation rows.
+- [x] Оценить baseline и Dummy на одних и тех же validation rows.
 - Зависит от D3-04. Вход: aligned truth/predictions; выход: typed metrics
   и таблица сравнения с фиксированным class order.
 - Реализовать reusable evaluation в `models/evaluate.py`: macro F1,
@@ -499,7 +499,22 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 - Промпт: «Выполни только D3-05 из PLAN.md: validation metrics baseline
   и Dummy, fixed class order и учебная интерпретация. Обнови notebook,
   выполни общий checkpoint; без tuning и test evaluation».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-14): `models/evaluate.py` предоставляет typed
+  `ClassificationMetrics`/`ClassMetrics` и `evaluate_baselines`; macro F1,
+  accuracy и per-class precision/recall/F1/support считаются с явными
+  labels `[0,1,2]`, `average=None` для per-class и `zero_division=0`.
+  Валидация блокирует пустые/не одномерные массивы, bool/float/unknown IDs и
+  разные длины; support всех трёх классов суммируется в `N_valid`, в том числе
+  когда класс ни разу не предсказан. Unit tests сверяют известный пример с
+  ручным расчётом и проверяют comparison table. Notebook executed clean kernel
+  из корня и `notebooks/`; оба estimator использовали те же 553 validation IDs,
+  test не оценивался. Реальные validation results: baseline accuracy=0.813743,
+  macro F1=0.720965; Dummy accuracy=0.622061, macro F1=0.255667. У baseline
+  recall negative/neutral/positive = 0.462687/0.976744/0.584507; у Dummy
+  majority neutral recall=1.0, recall двух других классов=0. Метрики сохранены
+  только как notebook outputs; tuning и confusion matrix не выполнялись.
+  Полный suite: 162 passed, 46 subtests passed; Pyright source/notebook exports:
+  0 errors/warnings; compileall, `git diff --check`, `pip check` прошли.
 
 ### D3-06 — сохранение baseline reference и offline команда
 
