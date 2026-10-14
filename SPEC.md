@@ -451,6 +451,15 @@ source IDs, raw texts и clean texts; каждая группа целиком �
 Одинаковые данные/config/runtime дают одинаковое назначение. Manifest фиксируется
 в D3-06 и повторно используется Day04/Day05, без нового случайного разделения.
 
+API D3-02: `data.split_data.split_processed_news(df: DataFrame, *,
+test_size=0.2, validation_size=0.2, random_state=42) -> NewsSplits`.
+`NewsSplits` содержит manifest `(N, 3)`, `splits` с ключами
+`train`, `validation`, `test` и typed `SplitSummary`/`SplitStats`.
+Summary фиксирует algorithm/seed/fractions, counts и доли строк/групп,
+counts и доли классов с отдельными row/group denominators, disjointness
+по source IDs/raw/clean. Вход и pandas index сохраняются; ID определяется
+по source_row_id. I/O и fit отсутствуют; артефакты сохраняются в D3-06.
+
 ### Estimators и fit boundary (D3-03…D3-04)
 
 `models/train_model.py` создаёт `sklearn.pipeline.Pipeline` с шагами

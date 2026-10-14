@@ -3,7 +3,7 @@
 ## Порядок работы
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
-Day03: D3-01 завершён 2026-10-14; следующий исполнимый пункт — D3-02.
+Day03: D3-01 и D3-02 завершены 2026-10-14; следующий исполнимый пункт — D3-03.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -282,7 +282,7 @@ execution проверять отдельно. Notebook должен работ�
 
 Статусы и свидетельства указаны ниже. Один ID — один самостоятельный промпт
 агенту; выполнять последовательно D3-01 → D3-07. Это реализация
-`classification_day03.txt` по SPEC §8; D3-02…D3-07 ещё не начаты.
+`classification_day03.txt` по SPEC §8; D3-03…D3-07 ещё не начаты.
 Вход дня — проверенный processed dataset Day02 `(N, 5)`; выход — обученный
 TF-IDF/LogisticRegression Pipeline, ориентир DummyClassifier и сохранённая
 baseline reference на validation. Held-out test выделяется, но не оценивается
@@ -349,7 +349,7 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ### D3-02 — воспроизводимый stratified group-aware split
 
-- [ ] Разделить группы текстов на train, validation и held-out test.
+- [x] Разделить группы текстов на train, validation и held-out test.
 - Зависит от D3-01. Вход: проверенная таблица; выход: manifest
   `source_row_id, group_id, split` и summary в памяти, таблицы трёх splits.
 - Реализовать split в `data/split_data.py`: группы по точному `text_clean`,
@@ -371,7 +371,32 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 - Промпт: «Выполни только D3-02 из PLAN.md: stable stratified group-aware
   train/validation/test split по SPEC §8. Обнови day03 notebook, выполни
   общий checkpoint; не обучай модели и не оценивай test».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-14): `data/split_data.py` реализует
+  `group-stratified-v1`, seed=42 на обоих этапах и сортировку outer-train
+  перед validation; группы по точному text_clean, ID=min source_row_id.
+  `NewsSplits` возвращает manifest, три таблицы и typed row/group summary;
+  reuse validator блокирует raw→clean inconsistency и raw/clean conflicts.
+  Все строки, включая same-label repeats, и их порядок/index сохраняются.
+  21 новый pytest case проверяет coverage/disjointness, stable IDs, баланс,
+  повторяемость/index independence, сохранение repeats, seed42 reference,
+  conflicts, малые классы/rounding и неверные fractions/seed без fallback.
+  Полный offline suite: 147 passed, 46 subtests passed; Pyright sources и
+  exports всех notebooks: 0 errors/warnings; compileall/diff check passed.
+  На реальных данных: rows=3453, groups=3448; train/validation/test rows
+  2210/553/690, groups 2206/552/690; class row counts negative/neutral/positive:
+  train=269/1374/567, validation=67/344/142, test=84/428/178.
+  Все три класса присутствуют, IDs/raw/clean texts попарно disjoint,
+  manifest повторяется, все 5 repeats сохранены; checksums inputs неизменны.
+  Предыдущие условия перепроверены: исходный suite 126+46 прошёл, pip check
+  без конфликтов; Day02 archive/canonical/processed hashes и policy совпали,
+  loader/config D3-01 валидны; Day02 clean venv kernel — 9/9 cells без ошибок.
+  Day03 clean venv kernels (cwd=root/notebooks): по 7/7 code cells, 0 errors;
+  outputs новых D3-02 ячеек сохранены, пользовательские outputs D3-01 оставлены.
+  Runtime Python 3.14.7, Day03 pins сохранены; полный curriculum stack ранее
+  установлен по явному запросу пользователя, PyTorch — CPU.
+  Первую Jupyter попытку ограничил read-only ~/.jupyter; после переключения
+  пользователем на Full access kernelspec и clean kernels успешно проверены.
+  Split/summary пока только в памяти; estimators, fit и test metrics отсутствуют.
 
 ### D3-03 — конструкция TF-IDF/LogReg Pipeline и Dummy baseline
 
@@ -506,9 +531,9 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ## Шаблон запроса для следующего чата
 
-> Выполни только D3-02 из PLAN.md по SPEC §8 и AGENTS.md.
-> Реализуй reproducible stratified group-aware train/validation/test split.
-> Выполни общий checkpoint, обнови notebook/PLAN; не начинай D3-03 и не обучай модели.
+> Выполни только D3-03 из PLAN.md по SPEC §8 и AGENTS.md.
+> Создай unfitted TF-IDF/LogReg Pipeline и DummyClassifier builders.
+> Выполни общий checkpoint, обнови notebook/PLAN; не начинай D3-04 и не выполняй fit.
 > Покажи diff stat, предложи commit message, не делай commit.
 
 При работе целым днём замените ID на day03. Крупные решения фиксируем в SPEC;
