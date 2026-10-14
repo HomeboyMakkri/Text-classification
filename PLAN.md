@@ -518,7 +518,7 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ### D3-06 — сохранение baseline reference и offline команда
 
-- [ ] Сохранить splits, predictions, metrics, config и provenance для Day04.
+- [x] Сохранить splits, predictions, metrics, config и provenance для Day04.
 - Зависит от D3-05. Вход: проверенные результаты D3-01…D3-05;
   выход: артефакты SPEC §8 и явная offline команда воспроизведения.
 - Добавить единый runner, вызывающий общий loader/split/build/train/evaluate,
@@ -540,7 +540,25 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 - Промпт: «Выполни только D3-06 из PLAN.md: baseline reference artifacts,
   provenance и offline runner/CLI по SPEC §8. Обнови notebook и свидетельство,
   выполни общий checkpoint; без inference bundle и будущих experiments».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-14): добавлен `models/run_baseline.py` и поддерживаемый
+  CLI `PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.train_model
+  --config configs/train_baseline.json`. Runner использует D3-01…D3-05 reusable
+  APIs; повторного preprocessing/split logic в notebook нет. Сохранены локально:
+  `data/processed/day03/splits.csv` (manifest), `reports/day03/split_summary.json`,
+  `validation_predictions.csv`, `metrics.json`, effective `config.json` и
+  `provenance.json`. Provenance содержит source/revision/subset, Day02 policy и
+  provenance checksum, checksums исходных input bytes и config/processed CSV/
+  manifest/summary/predictions/metrics, seed/algorithm, V=5000, classes и runtime
+  versions; timestamp отсутствует. CSV/JSON roundtrip проверяется до записи;
+  metrics повторно пересчитываются из round-tripped validation CSV; входные
+  bytes сверяются повторно перед outputs. Runner tests покрывают все outputs,
+  schemas/ID order, provenance checksums, deterministic repeat и missing input.
+  Реальная CLI команда и notebook runner прошли; все шесть artifacts побайтно
+  совпали при повторном запуске в текущем runtime. Notebook clean kernel прошёл
+  из корня и `notebooks/`, outputs сохранены; test metrics/predictions и model
+  bundle отсутствуют. Полный suite: 165 passed, 46 subtests passed; Pyright
+  sources/notebook exports: 0 errors/warnings; compileall, `git diff --check`,
+  `pip check` прошли. Reference artifacts остаются локальными/ignored.
 
 ### D3-07 — выводы и итоговая приёмка Day03
 

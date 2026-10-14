@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from itertools import combinations
+import argparse
 import warnings
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -165,3 +167,20 @@ def fit_baselines(splits: NewsSplits, config: BaselineConfig) -> BaselineFit:
         feature_count=int(train_features.shape[1]),
         convergence_status="converged_no_warning",
     )
+
+
+def main() -> None:
+    """Run the supported offline Day03 CLI."""
+    parser = argparse.ArgumentParser(description="Build reproducible Day03 baseline reference artifacts.")
+    parser.add_argument("--config", type=Path, default=Path("configs/train_baseline.json"))
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[3])
+    args = parser.parse_args()
+    from finnews_sentiment.models.run_baseline import run_baseline
+
+    result = run_baseline(args.config, args.root)
+    for name, path in result.artifacts.__dict__.items():
+        print(f"{name}: {path}")
+
+
+if __name__ == "__main__":
+    main()
