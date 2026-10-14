@@ -4,13 +4,13 @@ from dataclasses import dataclass
 import json
 import math
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 
 class TfidfSettings(TypedDict):
     max_features: int
     ngram_range: tuple[int, int]
-    analyzer: str
+    analyzer: Literal["word"]
     lowercase: bool
     stop_words: None
     min_df: int
@@ -18,13 +18,13 @@ class TfidfSettings(TypedDict):
     use_idf: bool
     smooth_idf: bool
     sublinear_tf: bool
-    norm: str
+    norm: Literal["l2"]
     token_pattern: str
     strip_accents: None
 
 
 class LogRegSettings(TypedDict):
-    solver: str
+    solver: Literal["lbfgs"]
     C: float
     l1_ratio: float
     max_iter: int
@@ -34,7 +34,7 @@ class LogRegSettings(TypedDict):
 
 
 class DummySettings(TypedDict):
-    strategy: str
+    strategy: Literal["most_frequent"]
 
 
 @dataclass(frozen=True)

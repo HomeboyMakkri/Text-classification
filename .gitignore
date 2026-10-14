@@ -7,5 +7,5 @@ __pycache__/
 .ruff_cache/
 .cache/
 /data/
-models/
+/models/
 reports/

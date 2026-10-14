@@ -400,7 +400,7 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 ### D3-03 — конструкция TF-IDF/LogReg Pipeline и Dummy baseline
 
-- [ ] Создать необученные estimators с явно зафиксированными параметрами.
+- [x] Создать необученные estimators с явно зафиксированными параметрами.
 - Зависит от D3-02. Вход: согласованный config; выход: новый unfitted
   `Pipeline([('tfidf', ...), ('clf', ...)])` и DummyClassifier `most_frequent`.
 - Доработать `models/train_model.py` в пределах создания estimators:
@@ -422,7 +422,21 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
   попасть в vocabulary стандартного TF-IDF tokenizer?
 - Промпт: «Выполни только D3-03 из PLAN.md: builders TF-IDF/LogReg Pipeline
   и DummyClassifier по SPEC §8. Обнови notebook и проверки; пока без fit».
-- Свидетельство: пока отсутствует.
+- Свидетельство (2026-10-14): `models/train_model.py` строит Pipeline
+  `tfidf → clf` и DummyClassifier по typed config; оба builder создают новый
+  unfitted объект и не читают данные/не вызывают fit. В `.gitignore` правило
+  `models/` сужено до `/models/`, чтобы пакет `src/finnews_sentiment/models/`
+  отслеживался, а локальные корневые model artifacts оставались игнорируемыми.
+  Pytest проверяет все заданные параметры, типы/шаги, отсутствие fitted
+  attributes и независимость экземпляров. Новый раздел notebook объясняет
+  sparse `(N_train, V)`, unigram/bigram, tokenizer limits и Dummy input;
+  clean kernel успешно исполнил notebook сверху вниз из корня и `notebooks/`,
+  outputs сохранены. Полный offline suite: 148 passed, 46 subtests passed;
+  Pyright sources и notebook exports: 0 errors/warnings; compileall и
+  `git diff --check` прошли. После получения Pylance diagnostics установлен
+  `scikit-learn-stubs==0.0.3` в `venv/` и закреплён в dev requirements;
+  Pyright теперь видит sklearn Literal contracts, reported type mismatches
+  устранены, повторная общая проверка остаётся чистой. Fit/predict не выполнялись.
 
 ### D3-04 — обучение на train и aligned validation predictions
 
