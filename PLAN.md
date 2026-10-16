@@ -3,8 +3,8 @@
 ## Порядок работы
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
-Day03: D3-01…D3-07 завершены 2026-10-14; следующий пункт — D4-01.
-Day04 детализирован ниже: D4-01…D4-08, все пункты pending.
+Day03: D3-01…D3-07 завершены 2026-10-14.
+Day04: D4-01…D4-02 завершены; следующий пункт — D4-03; D4-03…D4-08 pending.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -605,7 +605,8 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 Детализация `classification_day04.txt` по SPEC §2, §6 и §8. Один ID — один
 самостоятельный промпт Codex; выполнять последовательно D4-01 → D4-08.
-Сейчас добавлен только план: эксперименты не запущены, результаты не измерены.
+Завершены D4-01…D4-02: протокол зафиксирован, reference проверена, общие CV
+folds построены. Model experiments не запускались, результаты качества не измерены.
 Вход — проверенные Day02 artifacts и сохранённая Day03 baseline reference,
 включая неизменный manifest train/validation/test. Выход — сравнение трёх
 направлений улучшения, выбранная конфигурация и воспроизводимый протокол.
@@ -673,7 +674,7 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ### D4-02 — загрузка фиксированных splits и общие CV folds
 
-- [ ] Реализовать проверенную загрузку Day03 manifest и построение train-only folds.
+- [x] Реализовать проверенную загрузку Day03 manifest и построение train-only folds.
 - Зависит от D4-01. Переиспользовать Day03 loader/validation; splits восстановить
   по сохранённым source IDs, не вызывать новый train_test_split.
 - Проверить checksums/provenance, coverage/order/labels/group IDs и disjointness;
@@ -691,7 +692,18 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 - Самопроверка: почему одинаковый seed без сохранённого manifest недостаточен?
 - Промпт: «Выполни только D4-02 из PLAN.md: загрузка сохранённых splits и
   одинаковые train-only group-aware CV folds. Обнови notebook и проверки».
-- Свидетельство: pending.
+- Свидетельство (2026-10-16): добавлены `data/experiment_splits.py` с
+  `load_day04_inputs` (Day02 loader + Day03 config/provenance/checksum/schema/
+  ID/order/label/group/disjointness checks) и `build_train_cv_folds`
+  (`StratifiedGroupKFold`, seed 42; fold manifest и positional indices только
+  для train). Повторный запуск даёт тот же manifest; отсутствующий/повреждённый
+  reference и несовпадения IDs/groups отвергаются; тестовые/validation IDs в CV
+  не попадают. Реальные размеры Day03: train 2210 rows/2206 groups,
+  validation 553/552, test 690/690. Train CV folds: validation 737/736/737 rows,
+  735/735/736 groups; все три класса представлены в обеих частях каждого fold.
+  Notebook D4-02 выполнен из корня и `notebooks/`. Проверки: 8 pytest passed,
+  type gate 0 errors/warnings, compileall и `git diff --check` прошли. Модели и
+  метрики качества не запускались; Day02/Day03 files не изменены.
 
 ### D4-03 — общий CV runner и baseline на тех же folds
 
