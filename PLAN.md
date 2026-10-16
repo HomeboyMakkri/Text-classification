@@ -605,9 +605,9 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 Детализация `classification_day04.txt` по SPEC §2, §6 и §8. Один ID — один
 самостоятельный промпт Codex; выполнять последовательно D4-01 → D4-08.
-Завершены D4-01…D4-03: протокол зафиксирован, reference проверена, общие CV
-folds построены, baseline CV измерен. Направленные model experiments и tuning
-пока не запускались.
+Завершены D4-01…D4-04: протокол зафиксирован, reference проверена, общие CV
+folds построены, baseline и unigram CV измерены. LinearSVC и подбор C пока не
+запускались.
 Вход — проверенные Day02 artifacts и сохранённая Day03 baseline reference,
 включая неизменный manifest train/validation/test. Выход — сравнение трёх
 направлений улучшения, выбранная конфигурация и воспроизводимый протокол.
@@ -741,7 +741,7 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ### D4-04 — эксперимент с word n-grams
 
-- [ ] Проверить word unigram TF-IDF + прежнюю LogisticRegression.
+- [x] Проверить word unigram TF-IDF + прежнюю LogisticRegression.
 - Зависит от D4-03. Единственное изменение относительно baseline:
   ngram_range=(1, 1); max_features=5000 и остальные параметры сохранить.
 - Выполнить CV общим runner на тех же folds; показать paired fold scores,
@@ -755,7 +755,15 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 - Самопроверка: почему добавление bigrams не гарантирует улучшение?
 - Промпт: «Выполни только D4-04 из PLAN.md: unigram experiment против
   baseline на прежних CV folds. Обнови notebook и свидетельство».
-- Свидетельство: pending.
+- Свидетельство (2026-10-16): unigram pipeline создан из baseline config с
+  единственным изменением `ngram_range=(1, 1)` и оценён общим runner на folds
+  D4-03. Paired macro F1 deltas по folds 0/1/2: +0.019131/-0.000779/-0.001302;
+  unigram mean/std 0.669960/0.019630 против baseline 0.664277/0.026227,
+  средний delta +0.005683. Accuracy mean 0.789599 против 0.792315. Число
+  features: 4959/5000/5000 против baseline 5000 на каждом fold; convergence
+  warnings отсутствуют. Вывод: небольшой выигрыш среднего macro F1 на этих
+  folds, но не на каждом fold и со снижением accuracy — сигнал, не гарантия.
+  Notebook clean-kernel исполнен из корня и `notebooks/`; type gate 0 errors.
 
 ### D4-05 — эксперимент с LinearSVC
 
