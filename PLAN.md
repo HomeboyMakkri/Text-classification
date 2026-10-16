@@ -605,8 +605,9 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 Детализация `classification_day04.txt` по SPEC §2, §6 и §8. Один ID — один
 самостоятельный промпт Codex; выполнять последовательно D4-01 → D4-08.
-Завершены D4-01…D4-02: протокол зафиксирован, reference проверена, общие CV
-folds построены. Model experiments не запускались, результаты качества не измерены.
+Завершены D4-01…D4-03: протокол зафиксирован, reference проверена, общие CV
+folds построены, baseline CV измерен. Направленные model experiments и tuning
+пока не запускались.
 Вход — проверенные Day02 artifacts и сохранённая Day03 baseline reference,
 включая неизменный manifest train/validation/test. Выход — сравнение трёх
 направлений улучшения, выбранная конфигурация и воспроизводимый протокол.
@@ -707,7 +708,7 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ### D4-03 — общий CV runner и baseline на тех же folds
 
-- [ ] Реализовать небольшой runner одного кандидата и измерить baseline CV.
+- [x] Реализовать небольшой runner одного кандидата и измерить baseline CV.
 - Зависит от D4-02. Вход: unfitted Pipeline, train и готовые folds;
   выход: fold scores, mean/std macro F1, accuracy и контекст запуска.
 - Переиспользовать baseline builder/evaluation; для каждого fold новый clone
@@ -724,7 +725,19 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 - Самопроверка: почему нельзя один раз fit TF-IDF перед cross-validation?
 - Промпт: «Выполни только D4-03 из PLAN.md: reusable CV runner и baseline
   на фиксированных folds. Обнови notebook; без новых моделей и tuning».
-- Свидетельство: pending.
+- Свидетельство (2026-10-16): добавлен `models/cv_runner.py` с полной
+  preflight-валидацией fold assignments, отдельным `clone` на fold, fit TF-IDF
+  только на fold train, sparse feature checks, контекстными ошибками, явным
+  отказом при ConvergenceWarning и fold-level метриками/таймингами/параметрами.
+  Pytest покрывает leakage vocabulary, независимость clones, повторяемость
+  scores, malformed folds до clone, prefit Pipeline и convergence failure;
+  26 целевых тестов прошли. Реальный baseline на folds 0/1/2 получил macro F1
+  0.634554/0.698353/0.659923 (mean 0.664277, std 0.026227), accuracy
+  mean 0.792315 (std 0.011444), 5000 features на каждом fold, без convergence
+  warnings. Сохранённый D4-03 checkpoint в `notebooks/day04_experiments.ipynb`
+  выполнен чистым kernel из корня и `notebooks/`; отдельно отмечено, что эти
+  CV scores не являются прямым сравнением с одиночным Day03 validation score.
+  `scripts/check_types.py`: 0 errors/warnings; `pip check` clean.
 
 ### D4-04 — эксперимент с word n-grams
 

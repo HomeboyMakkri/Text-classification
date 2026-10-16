@@ -355,7 +355,7 @@ def build_train_cv_folds(
     assignment = [-1] * len(train)
     summary_rows: list[dict[str, object]] = []
     try:
-        split_indices = splitter.split(train["text_clean"], y, groups)
+        split_indices = splitter.split(train["text_clean"].tolist(), y, groups)
         for fold_id, (train_positions, validation_positions) in enumerate(split_indices):
             if set(groups[train_positions]).intersection(groups[validation_positions]):
                 raise ValueError(f"Text groups overlap between CV train and validation in fold {fold_id}")
