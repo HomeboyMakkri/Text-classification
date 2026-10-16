@@ -3,7 +3,8 @@
 ## Порядок работы
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
-Day03: D3-01…D3-06 завершены 2026-10-14; следующий пункт — D3-07.
+Day03: D3-01…D3-07 завершены 2026-10-14; следующий пункт — D4-01.
+Day04 детализирован ниже: D4-01…D4-08, все пункты pending.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -600,41 +601,245 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
   корня и `notebooks/`, без download. Полный протокол и ограничения — в
   `reports/day03/observations.md`.
 
-## Roadmap day04–day07
+## Day04 — контролируемые эксперименты и выбор модели
+
+Детализация `classification_day04.txt` по SPEC §2, §6 и §8. Один ID — один
+самостоятельный промпт Codex; выполнять последовательно D4-01 → D4-08.
+Сейчас добавлен только план: эксперименты не запущены, результаты не измерены.
+Вход — проверенные Day02 artifacts и сохранённая Day03 baseline reference,
+включая неизменный manifest train/validation/test. Выход — сравнение трёх
+направлений улучшения, выбранная конфигурация и воспроизводимый протокол.
+Прирост не гарантируется: baseline может остаться лучшим вариантом.
+
+Протокол: одинаковые group-aware CV folds только внутри Day03 train; каждый
+fold заново fit всего Pipeline, включая TF-IDF. CV выбирает конфигурацию;
+после фиксации выбора она fit на полном train и оценивается на прежнем
+validation для сравнения с Day03. Validation не добавляется в обучение.
+Held-out test не участвует в fit/transform/predict/score; его оценка — D5-04.
+Ручной разбор ошибок и confusion matrix — Day05, inference bundle — Day06.
+
+Общий checkpoint: `notebooks/day04_experiments.ipynb`. После каждого ID добавить
+раздел «цель → теория → вызов кода → результат → интерпретация → самопроверка»,
+сохранить реальные outputs и свидетельство в PLAN. Логика — в
+`src/finnews_sentiment/`, новые tests — pytest; notebook — тонкий caller.
+После изменений Python/code cells обязательны type gate
+`venv/bin/python scripts/check_types.py`, соответствующие offline tests,
+compileall и `git diff --check`. Реальные данные и clean-kernel execution
+из корня и `notebooks/` проверять отдельно, offline, без download.
+Пункт закрывать только с подтверждённым checkpoint и без type errors;
+недоступные проверки записывать явно. Документные правки не требуют tests.
+
+### D4-01 — гипотезы, протокол сравнения и notebook setup
+
+- [x] Зафиксировать до запуска экспериментов контракт Day04 в новом разделе SPEC
+  и создать начальный notebook с загрузкой реальных входных артефактов.
+- Зависит от D3-07. Проверить наличие Day03 reference, config и provenance;
+  при отсутствии дать команду воспроизведения Day03, не подменять fixtures.
+- Три направления: word unigrams вместо baseline word (1, 2);
+  LinearSVC вместо LogisticRegression с прежним TF-IDF; подбор LogReg C
+  при прежнем baseline TF-IDF. Это независимые проверки, без смешивания
+  изменений и без автоматического добавления комбинаций/новых моделей.
+- Зафиксировать CV: StratifiedGroupKFold(n_splits=3, shuffle=True,
+  random_state=42) внутри train, groups из Day03 manifest. Для всех кандидатов
+  одни и те же folds; три класса и непересечение групп обязательны.
+- Критерий выбора: максимальное среднее fold macro F1, labels=[0, 1, 2],
+  zero_division=0; дополнительно fold scores, std и accuracy. При точном
+  равенстве предпочесть baseline, далее заранее заданный порядок candidate IDs.
+  Baseline участвует в выборе наравне с кандидатами. Std не считать
+  доверительным интервалом или доказательством статистической значимости.
+- Выход: SPEC-контракт с ограниченным бюджетом экспериментов, выбором по CV,
+  правилами validation confirmation, ошибок/сходимости и схемой артефактов;
+  notebook setup без training. Параметры LinearSVC определить по закреплённому
+  sklearn API, сохранив C=1, class_weight=None, seed=42 и явный max_iter.
+- Проверка: документы согласованы с Day03/SPEC; notebook читает локальные inputs
+  и показывает baseline reference; исходные файлы/outputs Day03 не изменены.
+- Самопроверка: что именно проверяет каждая гипотеза? Почему CV и validation
+  имеют разные роли? Почему лучший вариант может совпасть с baseline?
+- Промпт: «Выполни только D4-01 из PLAN.md: контракт Day04 в SPEC и начальный
+  notebook. Не запускай эксперименты; выполни общий checkpoint».
+- Свидетельство (2026-10-16): `SPEC.md` §9 фиксирует три независимых направления,
+  общие StratifiedGroupKFold folds на train, метрики/selection/tie rules,
+  validation confirmation, test boundary, LinearSVC 1.9.1 параметры, обработку
+  ошибок/convergence warnings и схему Day04 artifacts. Создан
+  `notebooks/day04_experiments.ipynb`: чистый kernel загрузил реальные 3453×5
+  Day02 данные, сверил manifest (3453×3), пять Day03 checksums, схему и порядок
+  553 validation predictions, показал сохранённые baseline/Dummy metrics; fit и
+  эксперименты не выполнялись. Notebook успешно исполнен сверху вниз из корня
+  и `notebooks/`; split sizes 2210/553/690, sklearn 1.9.1. Day02/Day03 outputs
+  не изменены. Type gate: 0 errors/warnings после точечной typing-совместимости
+  `zero_division=0` с установленными sklearn stubs; compileall и diff check
+  прошли; `venv/bin/python -m pytest tests/test_day03_evaluate.py -v` — 12 passed.
+  Эксперименты не запускались.
+
+### D4-02 — загрузка фиксированных splits и общие CV folds
+
+- [ ] Реализовать проверенную загрузку Day03 manifest и построение train-only folds.
+- Зависит от D4-01. Переиспользовать Day03 loader/validation; splits восстановить
+  по сохранённым source IDs, не вызывать новый train_test_split.
+- Проверить checksums/provenance, coverage/order/labels/group IDs и disjointness;
+  отсутствующий/несогласованный manifest — ошибка с инструкцией восстановления.
+  Не переписывать reference и не менять seed в поисках удобного разбиения.
+- Создать фиксированный fold manifest по train source IDs/group IDs;
+  каждый train row ровно один раз в CV validation, duplicate group целиком
+  в одном fold. Ни validation, ни test source IDs в folds не входят.
+- Выход: reusable input/fold helpers, fold manifest и summary в памяти.
+  При невозможной stratification — информативная ошибка без fallback.
+- Проверка: повреждённый manifest/hash, неверные IDs/groups, неполное покрытие,
+  group leakage, отсутствие класса, воспроизводимость и неизменность inputs.
+- Notebook: реальные размеры/баланс folds; объяснить вложенность CV в train.
+  Fit и метрик моделей на этом шаге ещё нет.
+- Самопроверка: почему одинаковый seed без сохранённого manifest недостаточен?
+- Промпт: «Выполни только D4-02 из PLAN.md: загрузка сохранённых splits и
+  одинаковые train-only group-aware CV folds. Обнови notebook и проверки».
+- Свидетельство: pending.
+
+### D4-03 — общий CV runner и baseline на тех же folds
+
+- [ ] Реализовать небольшой runner одного кандидата и измерить baseline CV.
+- Зависит от D4-02. Вход: unfitted Pipeline, train и готовые folds;
+  выход: fold scores, mean/std macro F1, accuracy и контекст запуска.
+- Переиспользовать baseline builder/evaluation; для каждого fold новый clone
+  Pipeline. TF-IDF fit только на fold train, matrices остаются sparse.
+  Не передавать runner таблицы outer validation/test и не вычислять их метрики.
+- Фиксировать параметры, fold ID, размеры/число features, fit/score time и
+  сходимость. Timing — диагностическое измерение, не детерминированный output.
+  ConvergenceWarning/fit failure — явная неуспешная проверка, не скрытый NaN.
+- Проверка: fold-validation-only term отсутствует в vocabulary; нет общего
+  fitted state между folds; labels/order/scoring верны; повтор scores;
+  malformed folds отклоняются до fit. Импорт не запускает training.
+- Notebook: реальные baseline fold scores, среднее и разброс; объяснить,
+  почему Day03 validation macro F1 нельзя напрямую сравнить с CV mean.
+- Самопроверка: почему нельзя один раз fit TF-IDF перед cross-validation?
+- Промпт: «Выполни только D4-03 из PLAN.md: reusable CV runner и baseline
+  на фиксированных folds. Обнови notebook; без новых моделей и tuning».
+- Свидетельство: pending.
+
+### D4-04 — эксперимент с word n-grams
+
+- [ ] Проверить word unigram TF-IDF + прежнюю LogisticRegression.
+- Зависит от D4-03. Единственное изменение относительно baseline:
+  ngram_range=(1, 1); max_features=5000 и остальные параметры сохранить.
+- Выполнить CV общим runner на тех же folds; показать paired fold scores,
+  mean/std, delta macro F1 к CV baseline и фактическое число features.
+  Сравнивать относительно CV baseline, а не Day03 validation score.
+- Проверка: конфигурация отличается только ngram_range; train-only fit,
+  source alignment и сходимость подтверждены. Новые tests нужны только
+  для новых содержательных контрактов, не для повторения runner tests.
+- Notebook: гипотеза о контексте bigrams против размера/разреженности словаря,
+  реальные результаты и вывод «помогло/не помогло на этих folds».
+- Самопроверка: почему добавление bigrams не гарантирует улучшение?
+- Промпт: «Выполни только D4-04 из PLAN.md: unigram experiment против
+  baseline на прежних CV folds. Обнови notebook и свидетельство».
+- Свидетельство: pending.
+
+### D4-05 — эксперимент с LinearSVC
+
+- [ ] Сравнить LinearSVC с LogisticRegression при неизменном baseline TF-IDF.
+- Зависит от D4-04. Создать новый unfitted Pipeline с параметрами D4-01;
+  не менять n-grams, vocabulary limit, class_weight или preprocessing.
+- Запустить общий CV runner, сравнить paired fold scores и mean/std с baseline.
+  При несходимости выяснить причину, зафиксировать техническую коррекцию
+  iteration settings; не скрывать warning и не выбирать её по качеству test.
+- Проверка: независимые unfitted builders, параметры Pipeline, classes=[0,1,2],
+  sparse input, aligned predictions и отсутствие fit при import/build.
+- Notebook: linear margin classifier и отличие от LogReg; LinearSVC score
+  не probability, predict_proba не требуется. Реальные scores и ограничения.
+- Самопроверка: что меняется при прежних features и другом classifier?
+- Промпт: «Выполни только D4-05 из PLAN.md: LinearSVC experiment на прежних
+  TF-IDF и CV folds. Обнови notebook и проверки, без tuning».
+- Свидетельство: pending.
+
+### D4-06 — ограниченный подбор regularization C
+
+- [ ] Проверить LogReg C ∈ {0.1, 1.0, 10.0} с baseline TF-IDF.
+- Зависит от D4-05. Использовать GridSearchCV над полным Pipeline, прежние
+  folds и scoring macro F1 с фиксированными labels/zero_division;
+  error_score='raise', refit=False. Остальные параметры неизменны.
+- C=1 — контроль: fold scores должны совпасть с D4-03 в том же runtime;
+  это не новый независимый эксперимент. Не расширять grid по результатам,
+  не объединять автоматически n-gram/SVC эксперименты с подбором C.
+- Выход: полная компактная таблица параметров, fold scores, mean/std и
+  выбранное C по правилу D4-01. Выбор между всеми направлениями — в D4-07.
+- Проверка: grid использует ровно сохранённые train folds, TF-IDF внутри
+  каждого fit; нет validation/test fit/score, failures не маскируются;
+  повторяемость scores и контроль C=1. Не делать framework для tuning.
+- Notebook: смысл C, сильная/слабая regularization, цена перебора
+  и риск подгонки под CV; улучшение может отсутствовать.
+- Самопроверка: почему лучший CV score после перебора — не финальная test оценка?
+- Промпт: «Выполни только D4-06 из PLAN.md: ограниченный GridSearchCV для
+  LogReg C на прежних folds. Обнови notebook; не расширяй search space».
+- Свидетельство: pending.
+
+### D4-07 — сравнение, фиксация выбора и validation confirmation
+
+- [ ] Свести результаты, выбрать конфигурацию по CV и сохранить артефакты Day04.
+- Зависит от D4-06. Таблица включает baseline, unigram, LinearSVC и все C;
+  одинаковые folds, mean/std macro F1, accuracy, delta к CV baseline.
+  Явно отделить три направления экспериментов от числа конфигураций/fit.
+- Выбрать вариант по заранее зафиксированному правилу, сохранив baseline
+  при его победе. Fit выбранного Pipeline на полном Day03 train, затем
+  один validation predict; сравнить с сохранёнными Day03 baseline predictions
+  на той же последовательности source IDs. Не переизбирать по validation.
+- Показать validation macro F1/accuracy и per-class metrics; absolute delta
+  и относительную разницу macro F1 в процентах при baseline > 0.
+  Снижение validation score записать честно; не запускать новый tuning.
+- Выход: простой offline runner/CLI и `configs/experiments_day04.json`;
+  `reports/day04/` с effective config, CV fold manifest/summary/results,
+  selection.json (candidate ID, полные параметры, правило и rationale),
+  aligned validation_predictions.csv, metrics.json и provenance.json.
+  Provenance связывает Day02/Day03 hashes, folds, configs, seed, версии и
+  class order. Сохранить все результаты, включая отрицательные.
+- Проверка: CSV/JSON roundtrip, metrics из сохранённых predictions,
+  воспроизводимость folds/scores/выбора/predictions, корректные deltas/ties,
+  baseline остаётся допустимым победителем. Inputs и Day03 reference неизменны;
+  timings не участвуют в побайтном сравнении. Artifacts локальные/ignored;
+  код/config/docs отслеживаются. Нет model bundle и test predictions/metrics.
+- Notebook: итоговые CV и validation таблицы отдельно, объяснение выбора
+  и наблюдаемых trade-offs; причинные утверждения и значимость не обещать.
+- Самопроверка: что делать, если CV победитель хуже baseline на validation?
+  Почему эта validation оценка ещё не заменяет независимый test?
+- Промпт: «Выполни только D4-07 из PLAN.md: сравнение/выбор по CV,
+  validation confirmation и воспроизводимые Day04 artifacts/CLI».
+- Свидетельство: pending.
+
+### D4-08 — выводы и итоговая приёмка Day04
+
+- [ ] Завершить учебный checkpoint и подтвердить воспроизводимость дня.
+- Зависит от D4-07. Выход: полный `day04_experiments.ipynb`,
+  `docs/day04.md` с командами и `reports/day04/observations.md` с выводами.
+  Согласовать ignore policy: итоговые observations доступны для review,
+  generated experiment artifacts локальные, как в Day03.
+- Описать по фактическим результатам: что проверяли, что помогло/не помогло,
+  выбранный вариант и основания выбора, CV variability, validation delta,
+  дисбаланс и per-class trade-offs, ограниченный бюджет поиска и риск CV overfit.
+  Отсутствие улучшения — допустимый исследовательский результат.
+- Проверка: полный pytest suite, type gate, compileall, diff check;
+  отдельно реальный offline CLI repeat и notebook из корня/`notebooks/`
+  в чистых kernels. Не перезаписывать работающий пользовательский notebook.
+- Приёмка: проверены три направления, сравнение с baseline на общих folds
+  сохранено, выбор/config воспроизводимы, validation confirmation выполнен,
+  held-out test не использован; каждый ID имеет проверенный checkpoint.
+- Передача Day05: selection/config, прежний split manifest и aligned validation
+  predictions; не начинать анализ ошибок, итоговый test или inference.
+- Самопроверка: что даёт основание выбрать модель, а что остаётся неизвестным?
+- Промпт: «Выполни только D4-08 из PLAN.md: выводы, документация и итоговая
+  приёмка Day04. Не начинай Day05; запиши фактические проверки».
+- Свидетельство: pending.
+
+## Roadmap day05–day07
 
 | День | Подзадачи (все pending) | Результат / notebook |
 | --- | --- | --- |
-| 04 | D4-01 hypotheses/protocol; D4-02 n-grams; D4-03 LinearSVC; D4-04 hyperparameter CV; D4-05 comparison/selection | ≥3 controlled experiments, day04_experiments.ipynb |
 | 05 | D5-01 aligned predictions; D5-02 confusion matrix; D5-03 failure categories; D5-04 frozen final test/report | error analysis, day05_error_analysis.ipynb |
 | 06 | D6-01 artifact bundle; D6-02 load/predict API; D6-03 roundtrip consistency; D6-04 new-text demos | inference without fit, day06_inference.ipynb |
 | 07 | D7-01 end-to-end review; D7-02 runnable README; D7-03 summary/limitations; D7-04 clean-environment acceptance | reproducible mini-product, day07_review.ipynb |
 
 ## Шаблон запроса для следующего чата
 
-> Выполни только D3-03 из PLAN.md по SPEC §8 и AGENTS.md.
-> Создай unfitted TF-IDF/LogReg Pipeline и DummyClassifier builders.
-> Выполни общий checkpoint, обнови notebook/PLAN; не начинай D3-04 и не выполняй fit.
+> Выполни только D4-01 из PLAN.md по AGENTS.md и связанным разделам SPEC.md.
+> Зафиксируй контракт экспериментов в SPEC и создай начальный day04 notebook.
+> Выполни общий checkpoint, обнови PLAN; не запускай experiments и следующие ID.
 > Покажи diff stat, предложи commit message, не делай commit.
 
-При работе целым днём замените ID на day03. Крупные решения фиксируем в SPEC;
+При работе целым днём замените ID на day04. Крупные решения фиксируем в SPEC;
 вопросы пользователя можно обсуждать, не меняя scope реализации.
-
-## Дополнение day01 — Pylance/Pyright quality gate
-
-- [x] Добавить pinned Pyright и pandas-stubs, standard config для venv/src/tests/scripts.
-- [x] Исправить ROOT: Path через find_project_root; scalar row selection через iloc;
-  word count без неподдерживаемого в stubs list-string accessor.
-- [x] Добавить scripts/check_types.py с проверкой code cells всех notebooks и настройки VS Code.
-- Проверки: Pyright sources и notebook export — 0 errors, 0 warnings, 0 informations; 12/12 unit tests; compileall и diff check прошли. Исправленный notebook повторно выполнен в чистом kernel, outputs обновлены.
-
-## Дополнение — pytest для новых тестов
-
-- [x] Установить pytest в существующий `venv/` и закрепить `pytest==9.1.1`
-  в `requirements-dev.txt` (2026-10-11).
-- Все новые тесты писать с pytest; существующие unittest tests сохранять.
-  Правило и основная команда запуска закреплены в AGENTS.md.
-- Общая проверка suite: `venv/bin/python -m pytest tests -v`;
-  исторические unittest свидетельства выше остаются фактическими результатами
-  своих этапов. Для следующих этапов использовать pytest, включая D2-06.
-- Свидетельство: pytest 9.1.1 — 26 passed, 46 subtests passed; существующие
-  test files не изменены. `git diff --check` passed.

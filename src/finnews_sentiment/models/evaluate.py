@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from numbers import Integral
-from typing import Sequence
+from typing import Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,9 @@ from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_su
 from finnews_sentiment.data.load_data import CLASS_ORDER
 
 CLASS_IDS = (0, 1, 2)
+# scikit-learn 1.9 accepts integer 0 here at runtime, but its current stubs only
+# declare str. Keep the runtime contract while narrowing the typing workaround.
+_ZERO_DIVISION: str = cast(str, 0)
 
 
 @dataclass(frozen=True)
@@ -74,7 +77,7 @@ def evaluate_predictions(
         raise ValueError(f"y_true and y_pred lengths differ: {len(truth)} != {len(predictions)}")
 
     precision, recall, f1, support = precision_recall_fscore_support(
-        truth, predictions, labels=list(CLASS_IDS), average=None, zero_division=0,
+        truth, predictions, labels=list(CLASS_IDS), average=None, zero_division=_ZERO_DIVISION,
     )
     expected_shape = (len(CLASS_IDS),)
     if not isinstance(precision, np.ndarray) or precision.shape != expected_shape:
@@ -100,7 +103,7 @@ def evaluate_predictions(
         n_samples=len(truth),
         accuracy=float(accuracy_score(truth, predictions)),
         macro_f1=float(f1_score(
-            truth, predictions, labels=list(CLASS_IDS), average="macro", zero_division=0,
+            truth, predictions, labels=list(CLASS_IDS), average="macro", zero_division=_ZERO_DIVISION,
         )),
         per_class=per_class,
     )

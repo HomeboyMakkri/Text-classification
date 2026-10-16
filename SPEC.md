@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01 и Day02 завершены; **day03** детализирован в §8, реализация идёт по PLAN.
+Day01–Day03 завершены; **day04** детализирован в §9, реализация идёт по PLAN.
 Transformer fine-tuning, API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -122,7 +122,9 @@ requirements.txt                       # original broad curriculum dependencies
 - Baseline: TF-IDF (max_features=5000, ngram_range=(1, 2)) + Logistic Regression.
   DummyClassifier даёт ориентир. Sparse representation сохраняется.
 - Метрика: macro F1, дополнительно accuracy и precision/recall/F1/support по классам.
-- Day04: минимум три эксперимента на одинаковых validation folds; подбор через Pipeline.
+- Day04: минимум три контролируемых направления на одинаковых group-aware CV folds
+  внутри Day03 train; подбор через полный Pipeline. CV выбирает вариант, а
+  validation используется только для единственного подтверждения финального выбора.
 - Day05: анализ ошибок выбранной модели на validation. Финальный test после заморозки
   модели/параметров; анализ test допускается для итогового отчёта без дальнейшей настройки.
 - Day06: один bundle включает preprocessing contract, vectorizer, classifier, class order,
@@ -569,3 +571,85 @@ Pipeline и Dummy; aligned predictions/validation metrics; сохранённа�
 повторный offline run; type gate без ошибок и содержательные pytest tests;
 real-data checks и clean-kernel notebook подтверждены отдельно. Ни один пункт
 реализации не отмечается завершённым только на основании написанного кода.
+
+## 9. Контракт day04 — контролируемый выбор модели
+
+### Цель, границы и данные
+
+Day04 проверяет три заранее ограниченных направления для baseline `TF-IDF
+word (1, 2) + LogisticRegression(C=1)`: заменить диапазон n-grams на word
+unigrams `(1, 1)`; заменить classifier на `LinearSVC` с прежним TF-IDF;
+подобрать только `LogisticRegression.C` в `{0.1, 1.0, 10.0}` с прежними
+features. Направления независимы: не объединять изменения и не расширять
+набор моделей/параметров по промежуточным результатам. Baseline входит в
+сравнение как неизменный контроль. Минимум три направления — учебная цель,
+а не обещание улучшить качество.
+
+Вход — проверенные Day02 processed data/provenance, Day03 effective config и
+неизменённые split manifest/reference artifacts. Train из manifest — единственный
+источник для CV и fit. Validation не участвует в поиске; после выбора по CV
+выбранный полный Pipeline один раз fit на всём Day03 train и оценивается на
+Day03 validation для сравнения с сохранённым baseline. Это подтверждение не
+меняет выбор. Test сохраняется нетронутым: никакие его labels/texts не входят в
+fit, transform, prediction, scoring или выбор Day04; финальная test оценка — D5-04.
+
+### Общие folds, метрики и выбор
+
+Создать один набор `StratifiedGroupKFold(n_splits=3, shuffle=True,
+random_state=42)` folds только на Day03 train. `groups` берутся из
+`data/processed/day03/splits.csv` (`group_id`), а метки и строки выравниваются
+по `source_row_id`. Требуются все три класса в train и каждом fold, точная
+покрываемость train без повторов, непересечение групп train/validation/test и
+между fold train/validation. Невыполненный контракт — явная ошибка без fallback
+на обычную стратификацию. Все кандидаты используют сохранённые одни и те же
+индексы folds. На каждом fold заново fit полного `sklearn.pipeline.Pipeline`;
+TF-IDF vocabulary/IDF не может быть обучен вне fold train.
+
+Primary score — macro F1 с явными `labels=[0, 1, 2]` и `zero_division=0`;
+дополнительно сохранить fold accuracy. Для каждого кандидата показать три fold
+scores, среднее и population standard deviation (`ddof=0`) для macro F1 и
+accuracy. Разброс трёх folds описателен: std не является доверительным
+интервалом или тестом статистической значимости. Для всех моделей фиксирован
+порядок классов `0=negative, 1=neutral, 2=positive`.
+
+Выбрать максимальное среднее CV macro F1 среди baseline и допустимых кандидатов.
+При точном равенстве сохранить baseline; иначе использовать заранее
+фиксированный порядок `word_unigram`, `linear_svc`, `logreg_c_0_1`,
+`logreg_c_1_0`, `logreg_c_10_0`. Недопустимые конфигурации не участвуют.
+Validation показывает, как выбранная конфигурация выглядит на прежнем
+сравнительном split, но не используется для повторного выбора или tuning.
+
+### Конфигурация LinearSVC и ошибки выполнения
+
+Зафиксировать до запуска `LinearSVC(penalty="l2", loss="squared_hinge",
+dual="auto", tol=1e-4, C=1.0, multi_class="ovr", fit_intercept=True,
+intercept_scaling=1, class_weight=None, verbose=0, random_state=42,
+max_iter=5000)`, согласовав значения с установленным Day03 pin
+scikit-learn 1.9.1. Параметры задаются явно; изменение любой из них не должно
+смешиваться с проверкой замены classifier.
+
+Ошибки fit/score не превращать в нулевые метрики: runner должен остановиться с
+контекстом candidate/fold (`error_score="raise"` для search API). Записывать
+предупреждения `ConvergenceWarning`; конфигурация с предупреждением о несходимости
+недопустима для выбора и должна быть явно обозначена. Не скрывать warning или
+повторять её с иными параметрами в рамках того же сравнения. Остальные warnings
+также сохранять в run context.
+
+### Артефакты, notebook и приёмка
+
+Day04 не изменяет никакие файлы Day02/Day03. Эффективные параметры, folds,
+результаты и выбор принадлежат `reports/day04/` и `configs/experiments_day04.json`;
+генерируемые reports локальные/ignored. Финальная схема D4-07 включает config,
+fold manifest/summary, CV results, selection с причиной выбора, aligned
+validation predictions/metrics и provenance с checksums входов/выходов,
+seed, версиями и class order. Не сохранять model bundle, test predictions или
+test metrics. Сравниваемые результаты должны воспроизводиться в закреплённом
+runtime; время выполнения не входит в побайтное сравнение.
+
+`notebooks/day04_experiments.ipynb` — учебный checkpoint по одному разделу на
+ID: цель → краткая теория → вызов кода → фактический вывод → интерпретация →
+самопроверка. D4-01 загружает и проверяет реальные входные/reference artifacts,
+показывает сохранённые Day03 baseline validation metrics и ничего не fit-ит.
+Эксперименты начинаются в следующих ID. Отсутствующие локальные данные или
+reference требуют воспроизвести Day02/Day03 указанными в `docs/day02.md` и
+`docs/day03.md` offline-командами; synthetic fixtures не подставляются.
