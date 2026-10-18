@@ -4,7 +4,8 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-02 завершены; следующий пункт — D4-03; D4-03…D4-08 pending.
+Day04: D4-01…D4-07 отмечены завершёнными; D4-08 pending.
+Day05: D5-01…D5-06 спланированы; реализация после приёмки D4-08.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -605,8 +606,8 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 Детализация `classification_day04.txt` по SPEC §2, §6 и §8. Один ID — один
 самостоятельный промпт Codex; выполнять последовательно D4-01 → D4-08.
-Завершены D4-01…D4-06: протокол зафиксирован, reference проверена, общие CV
-folds построены, baseline, unigram, LinearSVC и ограниченный C grid измерены.
+Завершены D4-01…D4-07: протокол зафиксирован, reference проверена, общие CV
+folds построены, все кандидаты сравнены и CV-победитель подтверждён на validation.
 Вход — проверенные Day02 artifacts и сохранённая Day03 baseline reference,
 включая неизменный manifest train/validation/test. Выход — сравнение трёх
 направлений улучшения, выбранная конфигурация и воспроизводимый протокол.
@@ -821,7 +822,7 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ### D4-07 — сравнение, фиксация выбора и validation confirmation
 
-- [ ] Свести результаты, выбрать конфигурацию по CV и сохранить артефакты Day04.
+- [x] Свести результаты, выбрать конфигурацию по CV и сохранить артефакты Day04.
 - Зависит от D4-06. Таблица включает baseline, unigram, LinearSVC и все C;
   одинаковые folds, mean/std macro F1, accuracy, delta к CV baseline.
   Явно отделить три направления экспериментов от числа конфигураций/fit.
@@ -849,7 +850,21 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
   Почему эта validation оценка ещё не заменяет независимый test?
 - Промпт: «Выполни только D4-07 из PLAN.md: сравнение/выбор по CV,
   validation confirmation и воспроизводимые Day04 artifacts/CLI».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): реализован offline CLI/module
+  `run_experiments_day04` и фиксированный `configs/experiments_day04.json`.
+  Сравнены шесть конфигураций на общих train folds; лучший по mean macro F1 —
+  `linear_svc` (0.768715, std 0.024064); tie отсутствует. Он fit-ился один раз
+  на полном train и оценён на прежних 553 validation строках: macro F1 0.805961
+  против Day03 baseline 0.720965 (delta +0.084995, +11.79% relative), accuracy
+  0.848101 против 0.813743; per-class metrics сохранены. Test в fit/score не
+  передавался. CSV/JSON roundtrips, predictions alignment и input immutability
+  проверены до сохранения reports/day04 artifacts; provenance содержит hashes,
+  versions, seed и class order. Повторные CLI и clean-kernel notebook прогоны
+  дали побайтно одинаковые SHA-256 всех config/artifact файлов. Notebook из
+  корня и `notebooks/`; CLI: `PYTHONPATH=src venv/bin/python -m
+  finnews_sentiment.models.run_experiments_day04 --root . --config
+  configs/experiments_day04.json`. 22 targeted pytest tests passed, type gate 0
+  errors/warnings, compileall и `git diff --check` прошли.
 
 ### D4-08 — выводы и итоговая приёмка Day04
 
@@ -875,20 +890,216 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
   приёмка Day04. Не начинай Day05; запиши фактические проверки».
 - Свидетельство: pending.
 
-## Roadmap day05–day07
+## Day05 — error analysis и финальная оценка
+
+Детализация `classification_day05.txt` по SPEC §10. Все пункты pending:
+это планирование, без обучения, открытия test или создания notebook сейчас.
+Один ID — один промпт Codex. Порядок: D4-08 → D5-01 → D5-02 → D5-03 →
+D5-04 → D5-05 → D5-06. До реализации завершить приёмку Day04; наличие
+D4-07 artifacts само по себе не закрывает D4-08.
+
+Цель: объяснить ошибки уже выбранной по CV модели на validation, затем получить
+финальную held-out оценку замороженного решения. Day05 не меняет preprocessing,
+модель, параметры, splits или правило выбора. Гипотезы улучшений записываются
+для будущего эксперимента; найденные ошибки не запускают новый tuning.
+D5-04 сохраняет прежний ID, на который уже ссылаются Day03/Day04.
+Inference bundle, serialization и API новых текстов остаются Day06.
+
+### Рекомендуемые модели Codex и reasoning effort
+
+Рекомендации на 2026-10-18 — инженерный выбор для этих задач, не измеренный
+benchmark проекта. Модель Codex пишет код; выбранный финансовый classifier
+из Day04 — отдельная ML-модель, которую эти настройки не меняют.
+
+| Пункт | Рекомендация | Причина |
+| --- | --- | --- |
+| D5-01 | GPT-6.1 Sol, high | Проверка provenance, схем и alignment нескольких artifacts |
+| D5-02 | GPT-6 Luna, high | Локальная задача с однозначными инвариантами матрицы |
+| D5-03 | GPT-6.1 Sol, high | Разбор реальных ошибок и осторожные исследовательские выводы |
+| D5-04 | GPT-6.1 Sol, high | Freeze, fit boundary, replay и безопасный повтор финальной оценки |
+| D5-05 | GPT-6.1 Sol, medium | Сборка уже проверенных функций в offline report runner |
+| D5-06 | GPT-6.1 Sol, high | Проверка согласованности всего дня и clean-kernel воспроизведения |
+
+Если нужна одна настройка на весь день: GPT-6.1 Sol + high. Для D5-02 Sol +
+medium тоже разумен. Astra + high имеет смысл при сложном неразрешённом дефекте
+контрактов; Extra High (`xhigh`)/Max не нужны по умолчанию. Сначала уточнять
+входы, критерии и диагностировать провал проверки, затем повышать effort.
+Доступность зависит от аккаунта/клиента; при отсутствии 6.1 Sol использовать
+доступный GPT-6 Sol с тем же стартовым effort и теми же gates.
+
+Основание: [official OpenAI documentation: Models](https://learn.chatgpt.com/docs/models)
+и [Using GPT-6](https://developers.openai.com/api/docs/guides/latest-model).
+Они описывают роли моделей и effort; распределение по ID — наша рекомендация.
+
+### Общий checkpoint каждого пункта
+
+- Reusable логика — `src/finnews_sentiment/`, новые содержательные tests — pytest.
+  Переиспользовать Day03 metrics и Day04 loaders/builders, без побочного refactor.
+- В `notebooks/day05_error_analysis.ipynb` после каждого ID отдельный раздел:
+  цель → теория → вызов reusable кода → реальные outputs → интерпретация →
+  самопроверка. До D5-04 в notebook нет test predictions/metrics.
+- После Python/code cells: `venv/bin/python scripts/check_types.py`, целевые pytest,
+  `venv/bin/python -m compileall -q src tests`, `git diff --check`.
+  Отдельно реальная offline проверка и clean-kernel notebook из корня и
+  `notebooks/`; сохранять outputs, не прерывать работающий kernel.
+- Закрывать ID только с фактическими свидетельствами; недоступную проверку
+  записать явно. Финальный полный suite — D5-06. Commit только по запросу.
+
+### D5-01 — проверенная таблица validation predictions и notebook setup
+
+- [ ] Загрузить Day04 reference и собрать aligned таблицу для анализа без fit.
+- Зависит от D4-08. Вход: Day02 processed data/provenance, Day03 manifest,
+  Day04 selection/config/provenance, validation predictions/metrics.
+- Добавить reusable loader/table builder (например, `models/error_analysis.py`),
+  используя точные существующие имена колонок и hashes по SPEC §10.
+  Join по `source_row_id`, а не pandas index/позиции; проверить затем исходный
+  validation порядок, уникальность и полноту IDs, true labels и class order.
+- Выход: все validation строки с raw/clean text, true/pred labels, group ID и
+  `is_error`; errors — отдельный фильтр. Создать начальный day05 notebook:
+  N_valid, число/доля ошибок, реальные примеры, источник выбранного candidate.
+  Сохранённые Day04 predictions являются reference: не перезапускать CV/fit.
+- Проверка: переставленные/пропущенные/лишние/повторные IDs, неверные labels,
+  checksum mismatch и неизменность входов; ошибки схем диагностируются явно.
+- Самопроверка: почему одинаковой длины двух таблиц недостаточно для alignment?
+- Промпт: «Выполни только D5-01 из PLAN.md по SPEC §10; обнови notebook и PLAN,
+  выполни общий checkpoint. Не обучай модель и не оценивай test».
+- Свидетельство: pending.
+
+### D5-02 — confusion matrix и направления ошибок
+
+- [ ] Построить counts и row-normalized confusion matrix validation.
+- Зависит от D5-01. Вход — aligned таблица, выход — две матрицы `(3, 3)`,
+  CSV/PNG и таблица шести направленных off-diagonal пар с counts.
+- Строки = true, столбцы = predicted; порядок negative/neutral/positive.
+  Показать count и долю по истинному классу, подписать axes и denominators.
+  Для нулевого support нормированная строка = 0; не скрывать отсутствие класса.
+  Переиспользовать `models/evaluate.py` для per-class precision/recall/F1/support.
+- Проверка: известная асимметричная fixture обнаруживает transpose; сумма counts
+  = N, диагональ = correct, off-diagonal = errors, row sums = support;
+  отсутствующий predicted/true класс и сохранение графиков без GUI.
+- Notebook: оба графика, per-class metrics и фактическая интерпретация наиболее
+  частых направлений; не сравнивать сырые counts классов как error rates.
+- Самопроверка: чем true negative → predicted neutral отличается от обратной пары?
+- Промпт: «Выполни только D5-02 из PLAN.md: validation confusion matrix,
+  проверки и notebook checkpoint; не переходи к ручному анализу или test».
+- Свидетельство: pending.
+
+### D5-03 — реальные примеры и ручные failure categories
+
+- [ ] Разобрать реальные validation ошибки и записать проверяемые наблюдения.
+- Зависит от D5-02. Для каждой из шести непустых true→pred пар выбрать до трёх
+  примеров по возрастанию `source_row_id`, без cherry-picking; пустые пары
+  отметить явно. Показывать raw/clean text, labels, IDs и group ID.
+- Reusable функция выбирает examples; объяснения и категории записываются вручную
+  в reviewable таблицу по SPEC §10. Не приписывать модели доказанную причину.
+- Возможные категории: mixed sentiment, financial context, negation/comparison,
+  insufficient context/ambiguous label, preprocessing/representation limitation,
+  other/unclear. Это стартовый словарь, наличие категорий определяется примерами.
+- Сохранить `docs/day05_failure_cases.csv`: одна primary category и rationale на
+  каждый выбранный ID; observation отдельно от hypothesis. Не менять labels.
+  Для duplicate groups отметить повторы и число уникальных groups.
+- Выводы: 2–4 наблюдения с IDs и приоритетные будущие гипотезы с предлагаемой
+  train/CV проверкой. Counts категорий описывают только просмотренную выборку.
+  Не требовать категорий/ошибок, которых в реальных predictions нет.
+- Проверка: детерминированная выборка, нулевые ошибки/пустые пары, валидность
+  annotation IDs, отсутствие повторов/пропущенных annotations и test IDs.
+- Notebook: examples, ручные annotations, ограничения и вопросы самопроверки.
+- Самопроверка: доказывает ли один пример, что модель не понимает отрицания?
+- Промпт: «Выполни только D5-03 из PLAN.md: разбери реальные validation ошибки,
+  сохрани annotations/выводы, обнови notebook; не меняй модель и не открывай test».
+- Свидетельство: pending.
+
+### D5-04 — freeze и однократная финальная held-out оценка
+
+- [ ] Зафиксировать протокол и оценить единственную выбранную конфигурацию на test.
+- Зависит от D5-03. До доступа к test predictions/metrics записать
+  `reports/day05/frozen_protocol.json`: candidate/полные параметры из Day04,
+  preprocessing, hashes inputs/manifest/selection, train IDs, seed, versions,
+  class order, metric policy и fit policy `day03_train_only`.
+- Day04 не сохраняет fitted model. Восстановить exact выбранный Pipeline через
+  прежний builder; fit только на Day03 train, TF-IDF внутри Pipeline. Не
+  добавлять validation к train: сохраняем модель, поведение которой разбирали.
+- Сначала проверить точное совпадение replay validation predictions с reference
+  Day04; при mismatch/ConvergenceWarning остановиться до test. Эта проверка
+  воспроизводимости не выбирает заново candidate и не запускает CV.
+- Затем один раз predict на прежнем test, сохранить aligned predictions `(N_test,)`,
+  macro F1, accuracy, per-class metrics и test confusion matrix. Test не влияет
+  на параметры/порог/seed/предобработку. Рост относительно validation не требуется.
+  На test не оценивать заново кандидатов, baseline или Dummy.
+- Повторный запуск использует проверенный cache по frozen protocol и hashes;
+  не делает новый fit/predict. Повреждённый/неполный cache или иной protocol —
+  явная ошибка, без автоматического overwrite/re-evaluation. Свидетельство
+  фиксирует, первый это запуск или reuse, и пределы многофайловой записи.
+- Проверка: spies подтверждают train-only fit, validation replay до test,
+  остановку при mismatch, test predict только на первом успешном запуске,
+  cache reuse без fit/predict, отказ при checksum/protocol mismatch.
+  Fixtures в tests; реальный test запускается отдельно после offline gates.
+- Notebook: freeze → replay → final metrics с указанием split и cache status;
+  test результаты не превращаются в новый список изменений текущей модели.
+- Самопроверка: почему tuning после чтения test разрушает независимость оценки?
+- Промпт: «Выполни только D5-04 из PLAN.md по SPEC §10: freeze, train-only
+  replay, финальная test оценка и проверяемый cache; без tuning и Day06 bundle».
+- Свидетельство: pending.
+
+### D5-05 — offline отчёт и сохранение результатов анализа
+
+- [ ] Собрать report runner поверх D5-01…D5-04 без новой оценки test.
+- Зависит от D5-04. CLI/module `models/run_error_analysis_day05.py` читает
+  reference, ручные annotations и проверенный final cache; сохраняет таблицы,
+  графики, `analysis_summary.json` и `provenance.json` по SPEC §10.
+  Отсутствующий test cache требует отдельно выполнить D5-04, не запускает его
+  молча. Не делать download, CV или fit при сборке отчёта.
+- Проверять согласованность counts/metrics/annotations и CSV/JSON roundtrip;
+  outputs принадлежат Day05, Day02…Day04 не изменяются. CLI повторно работает
+  offline; сравниваемое содержимое не зависит от timestamp.
+- `docs/day05.md`: входы/выходы, отдельная команда финальной оценки и команда
+  report-only, первый запуск/cache reuse, правила ошибок, граница Day06.
+  `reports/day05/observations.md`: фактические validation conclusions и отдельный
+  final test результат/ограничения. Ключевые выводы также доступны в tracked docs.
+- Проверка: end-to-end report на fixtures без fit/predict, cache отсутствует/
+  повреждён, input immutability, roundtrip и repeat; отдельный real offline run.
+- Notebook: вызывать те же функции; report-only повтор не переоценивает test.
+- Самопроверка: какие artifacts нужны, чтобы связать метрику с конкретным запуском?
+- Промпт: «Выполни только D5-05 из PLAN.md: offline report runner, artifacts,
+  docs и notebook checkpoint; используй final cache без нового fit/test predict».
+- Свидетельство: pending.
+
+### D5-06 — итоговая приёмка и передача Day06
+
+- [ ] Проверить весь Day05 и зафиксировать фактическое выполнение критериев дня.
+- Зависит от D5-05. Полный pytest suite, type gate, compileall, diff check;
+  отдельно реальные artifact checks, повтор offline report CLI и полный notebook
+  из корня/`notebooks/` в чистых kernels с reuse одного final cache.
+- Проверить notebook: все переменные определены выше, отдельные sections по ID,
+  outputs/графики сохранены, validation/test не смешаны, примеры реальные,
+  counts сходятся, annotations и будущие гипотезы имеют ссылки на evidence.
+- Объяснить macro F1, дисбаланс, row/group weighting, пределы малого holdout,
+  conditional nature test после model selection и отсутствие доказанной live quality.
+  Не называть разброс CV доверительным интервалом; не обещать улучшение.
+- Передача Day06: frozen selected config, preprocessing policy, class mapping,
+  checksums и fit policy `day03_train_only`; Day06 bundle должен воспроизвести
+  это решение, без refit на validation/test по умолчанию.
+- Самопроверка: чем диагностика validation, итоговая оценка test и inference
+  на новых текстах отличаются по назначению и доступным действиям?
+- Промпт: «Выполни только D5-06 из PLAN.md: приёмка Day05, полный checkpoint,
+  документы и фактические свидетельства; не начинай Day06, commit не делай».
+- Свидетельство: pending.
+
+## Roadmap day06–day07
 
 | День | Подзадачи (все pending) | Результат / notebook |
 | --- | --- | --- |
-| 05 | D5-01 aligned predictions; D5-02 confusion matrix; D5-03 failure categories; D5-04 frozen final test/report | error analysis, day05_error_analysis.ipynb |
 | 06 | D6-01 artifact bundle; D6-02 load/predict API; D6-03 roundtrip consistency; D6-04 new-text demos | inference without fit, day06_inference.ipynb |
 | 07 | D7-01 end-to-end review; D7-02 runnable README; D7-03 summary/limitations; D7-04 clean-environment acceptance | reproducible mini-product, day07_review.ipynb |
 
 ## Шаблон запроса для следующего чата
 
-> Выполни только D4-01 из PLAN.md по AGENTS.md и связанным разделам SPEC.md.
-> Зафиксируй контракт экспериментов в SPEC и создай начальный day04 notebook.
-> Выполни общий checkpoint, обнови PLAN; не запускай experiments и следующие ID.
+Следующий незакрытый пункт сейчас — D4-08. После его приёмки:
+
+> Выполни только D5-01 из PLAN.md по AGENTS.md и SPEC §10.
+> Создай validation analysis table и начальный day05 notebook без fit/test evaluation.
+> Выполни общий checkpoint, обнови PLAN с фактическими свидетельствами.
 > Покажи diff stat, предложи commit message, не делай commit.
 
-При работе целым днём замените ID на day04. Крупные решения фиксируем в SPEC;
-вопросы пользователя можно обсуждать, не меняя scope реализации.
+При запросе целого Day05 выполнять его ID последовательно после D4-08;
+не переходить к Day06. Рекомендуемые модель и effort указаны в таблице Day05.

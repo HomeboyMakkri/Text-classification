@@ -653,3 +653,180 @@ ID: цель → краткая теория → вызов кода → фак�
 Эксперименты начинаются в следующих ID. Отсутствующие локальные данные или
 reference требуют воспроизвести Day02/Day03 указанными в `docs/day02.md` и
 `docs/day03.md` offline-командами; synthetic fixtures не подставляются.
+
+## 10. Контракт day05 — error analysis и frozen final evaluation
+
+### Цель, порядок и ML boundary
+
+Day05 реализует `classification_day05.txt`: найти ошибки, построить confusion
+matrix, разобрать реальные примеры разных классов, зафиксировать failure cases
+и будущие улучшения. Диагностика выполняется на прежнем Day03 validation для
+выбранного по CV Day04 candidate. Дополнительно D5-04 выполняет уже согласованную
+в §6/§8/§9 финальную held-out оценку. Это уточнение исходного задания, которое
+само не задаёт split или процедуру финального test.
+
+Порядок D5-01…D5-06 описан в PLAN; prerequisite — приёмка D4-08. D5-01 загружает
+reference без обучения, D5-02 строит матрицы, D5-03 фиксирует ручной анализ,
+D5-04 замораживает протокол и оценивает test, D5-05 собирает offline report,
+D5-06 проверяет весь день. Каждый пункт имеет checkpoint в
+`notebooks/day05_error_analysis.ipynb`; создание/выполнение начинается при
+реализации, а не при планировании.
+
+Не выполнять новый search, выбор candidate по validation/error analysis,
+изменение preprocessing, labels, seed, parameters, splits или thresholds.
+Идеи улучшений — отдельные будущие train/CV эксперименты. Текущий held-out test
+после открытия не может служить независимой проверкой последующих изменений.
+Test analysis допустим только как описание замороженного результата; подробные
+ручные failure categories этого дня строятся на validation. Inference bundle,
+joblib serialization и new-text prediction API относятся к Day06.
+
+### Проверенные входы и alignment (D5-01)
+
+Входы: Day02 processed data/provenance, Day03 manifest/config/reference и Day04
+`selection.json`, effective config, `validation_predictions.csv`, validation
+metrics и provenance. Проверять checksums и согласованность по существующим
+схемам Day03/Day04; не вводить второй несовместимый loader/config format.
+Candidate и параметры брать из сохранённого selection, а не зашивать имя
+текущего победителя. Отсутствующие/несогласованные artifacts — ошибка с путём и
+командой подготовки; не подменять реальную выборку fixtures и не пересоздавать
+Day03/Day04 молча.
+
+Day04 predictions имеют колонки `source_row_id`, `true_label_id`,
+`selected_pred_label_id`, `day03_baseline_pred_label_id`. Таблица analysis
+содержит `source_row_id`, `group_id`, `text`, `text_clean`, `true_label_id`,
+`pred_label_id` (явное отображение из `selected_pred_label_id`), `true_label`,
+`pred_label`, `is_error`. Все N_valid строк, исходный manifest order; таблица
+errors — её фильтр `true_label_id != pred_label_id` с тем же порядком.
+
+Join по `source_row_id` one-to-one; проверять точное покрытие validation IDs,
+уникальность, порядок predictions, совпадение true labels с processed data,
+`0=negative, 1=neutral, 2=positive`, непересечение с train/test IDs/groups.
+Переставленные predictions reference не исправлять молча. Raw/clean text не
+менять; пропуски/неизвестные labels/пустой вход — информативные ошибки.
+Нулевое число ошибок — корректный результат. Не обращаться к test текстам для
+examples или test predictions/metrics до D5-04. Структурная проверка manifest/
+provenance на всём processed CSV не является test evaluation.
+
+### Confusion matrix, metrics и выбор примеров (D5-02…D5-03)
+
+Матрица `(3, 3)` всегда имеет строки true, столбцы predicted, порядок классов
+negative/neutral/positive. Сохраняются integer counts и row-normalized доли:
+`M[i, j] / support[i]`; для support=0 строка нулевая, отсутствие класса явно
+отмечается. Counts sum=N, trace=correct, off-diagonal sum=errors,
+row sums=true support, column sums=predicted counts. Нормировка по true support
+показывает распределение предсказаний внутри класса, а не precision.
+PNG имеют подписи axes, классов и типа нормировки; сохраняются без GUI.
+
+Использовать общую Day03 metric policy: macro F1 с labels=[0,1,2], accuracy,
+per-class precision/recall/F1/support, zero_division=0. Не сравнивать размер
+ошибок разных классов без support. Row metrics учитывают каждую сохранённую
+строку; duplicate groups не становятся независимыми наблюдениями.
+Baseline reference можно упомянуть по сохранённым validation metrics; новый
+baseline/Dummy test запуск не требуется и не входит в Day05.
+
+Для каждой из шести направленных off-diagonal пар детерминированно выбрать
+до трёх validation ошибок по возрастанию `source_row_id`. Не дополнять пустые
+пары выдуманными примерами. Показывать raw/clean text, IDs, group и true/pred
+labels. Выборка для ручного разбора ограничена 18 строками; число уникальных
+groups и повторы явно видны. Все ошибки сохраняются отдельно от examples.
+
+Ручные annotations в tracked `docs/day05_failure_cases.csv`: `source_row_id`,
+`primary_category`, `observation`, `hypothesis`, `rationale`. Ровно одна строка
+на выбранный ID, без лишних/пропущенных/повторных IDs. `hypothesis` может быть
+пустой; observation/rationale непусты. Категории — описательная разметка
+просмотренных ошибок, не причинное объяснение модели и не новая ground truth.
+Counts категорий имеют denominator = число просмотренных examples, не N_valid
+и не все ошибки. Возможные категории и self-check вопросы — в PLAN.
+
+Выводы ссылаются на конкретные IDs и направления путаницы. Различать видимое
+наблюдение, возможное объяснение и будущую проверку. Не объявлять исходный label
+ошибочным и не исправлять его по несогласию модели. Не интерпретировать
+LinearSVC decision score как probability; confidence/calibration не нужны.
+
+### Frozen protocol и финальный test (D5-04)
+
+До test predict/metrics записать frozen protocol: candidate, полные параметры
+TF-IDF/classifier и preprocessing policy, seed, class mapping/order, metric
+policy, checksums processed data/manifest/Day04 selection/config/reference,
+train IDs (или их однозначный checksum), фактические runtime versions и fit
+policy `day03_train_only`. Test IDs задаются прежним manifest, без нового split.
+
+Day04 не сохраняет fitted Pipeline. Для первого запуска D5-04 создать exact
+выбранный Pipeline прежним builder и fit только на Day03 train. Vocabulary/IDF
+fit внутри Pipeline; sparse shape `(N_train, V)`, predictions `(N,)`.
+Validation не добавляется к train: final test оценивает тот же алгоритм и fit
+policy, чьи validation ошибки разбирались. Рефит на train+validation был бы
+другим обученным решением и не является default этого проекта.
+
+До обращения к test prediction сверить replay validation predictions с Day04
+reference по всем IDs, labels и порядку. Mismatch, checksum/version mismatch,
+неверный config или ConvergenceWarning останавливают выполнение до test.
+Replay — проверка воспроизведения, не вторая возможность выбрать модель.
+После успешного replay один раз вызвать predict на test, затем общие metrics
+и confusion matrix. Не менять protocol по результату; не требовать улучшения,
+не сравнивать validation/test как paired эксперимент на одинаковых строках.
+
+Сохранить `test_predictions.csv` с `source_row_id`, `true_label_id`,
+`pred_label_id` в test manifest order; `test_metrics.json` с
+`evaluation_split=test`, N_test, candidate/fit policy, class mapping/order и
+общими metrics; test counts/normalized matrix. Labels/texts test не участвуют
+в fit и подборе; финальные diagnostics описательны, без tuning.
+
+Повтор D5-04, CLI и clean-kernel notebook использует сохранённый final result:
+сверяет protocol/input/runtime/output hashes, IDs/order, пересчитывает metrics
+из cached predictions и читает cache без fit/test predict. Несовпадение или
+неполный cache — явная ошибка с инструкцией диагностики; автоматическое
+перезаписывание, удаление или новый test запуск запрещены. Отдельный final
+cache manifest `final_evaluation.json` записывается последним после проверки
+roundtrips и hashes всех final outputs; он не включает собственный checksum.
+Это маркер завершения, не общая транзакция файлов: прерванный первый запуск
+может оставить partial artifacts и требует явного разбора перед повтором.
+Нельзя гарантировать exactly-once prediction при аварии до сохранения cache.
+Report provenance отдельно фиксирует hashes protocol/cache manifest.
+
+### Артефакты и offline report (D5-05)
+
+| Путь | Назначение |
+| --- | --- |
+| `reports/day05/validation_analysis.csv` | Все aligned validation строки с текстами/labels и is_error |
+| `reports/day05/validation_errors.csv` | Все ошибки, без удаления duplicates |
+| `reports/day05/validation_examples.csv` | Детерминированная подвыборка с проверенными ручными annotations |
+| `reports/day05/validation_confusion_{counts,normalized}.{csv,png}` | Counts и нормировка по true support |
+| `reports/day05/confusion_pairs.csv` | Шесть направленных пар, counts и true support |
+| `reports/day05/frozen_protocol.json` | Protocol до test evaluation |
+| `reports/day05/test_predictions.csv`, `test_metrics.json` | Замороженная финальная оценка |
+| `reports/day05/test_confusion_{counts,normalized}.{csv,png}` | Описательная final test matrix |
+| `reports/day05/final_evaluation.json` | Final cache marker, protocol hash и hashes final outputs |
+| `reports/day05/analysis_summary.json`, `provenance.json` | Counts/denominators, policies, hashes inputs/outputs, versions, class order |
+| `reports/day05/observations.md` | Фактические выводы с явным разделением validation и test |
+| `docs/day05_failure_cases.csv`, `docs/day05.md` | Tracked annotations, команды, ключевые выводы и ограничения |
+
+Generated reports локальные/ignored согласно существующей policy; ручные
+annotations и ключевые conclusions доступны в Git для review. Hash manifest
+не должен содержать циклических ссылок или checksum самого себя.
+
+Reusable analysis в `models/error_analysis.py` (при необходимости небольшие
+соседние modules), финальная оценка — отдельная явная функция/команда D5-04.
+`models/run_error_analysis_day05.py` собирает report из reference, annotations
+и final cache без fit/predict/download/CV. Notebook вызывает те же функции.
+Команды реализации документируются в `docs/day05.md`: первый final run
+отдельно от report-only; import не вызывает I/O/training. Outputs только Day05,
+Day02…Day04 artifacts остаются неизменными. Проверять CSV/JSON roundtrip,
+согласованность metrics/counts и input immutability перед записью.
+
+### Приёмка (D5-06)
+
+Результат: реальные validation errors/examples, counts/normalized confusion
+matrix, evidence-backed failure cases, гипотезы будущих проверок и отдельный
+frozen test report без настройки по test. Все IDs/class order согласованы,
+counts имеют denominators; нет обещания роста метрики или live financial quality.
+Малый holdout и один split ограничивают выводы; std CV не доверительный интервал.
+
+Offline pytest отдельно проверяет schema/alignment, matrices, deterministic
+sampling, annotations, fit boundary/replay/cache и report repeat. Type gate
+охватывает Python и экспортированный notebook; compileall/diff check проходят.
+Реальные offline artifacts и notebook clean kernels из корня/`notebooks/`
+подтверждаются отдельно, с reuse final cache и сохранёнными outputs.
+Недоступный запуск явно отмечается; пункт не закрывается по одному наличию кода.
+Day06 получает frozen configuration, preprocessing/class contracts и ту же
+fit policy, не меняя модель на основании final test результата.

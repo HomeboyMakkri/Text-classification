@@ -1,0 +1,49 @@
+{
+  "policy": "day04-fixed-experiments-v1",
+  "baseline_config": "configs/train_baseline.json",
+  "cv": {
+    "splitter": "StratifiedGroupKFold",
+    "n_splits": 3,
+    "shuffle": true,
+    "random_state": 42,
+    "scope": "day03_train_only"
+  },
+  "selection": {
+    "metric": "mean_macro_f1",
+    "labels": [0, 1, 2],
+    "zero_division": 0,
+    "tie_order": [
+      "baseline",
+      "word_unigram",
+      "linear_svc",
+      "logreg_c_0_1",
+      "logreg_c_1_0",
+      "logreg_c_10_0"
+    ]
+  },
+  "candidates": {
+    "baseline": {},
+    "word_unigram": {
+      "tfidf_overrides": {
+        "ngram_range": [1, 1]
+      }
+    },
+    "linear_svc": {
+      "classifier": {
+        "penalty": "l2",
+        "loss": "squared_hinge",
+        "dual": "auto",
+        "tol": 0.0001,
+        "C": 1.0,
+        "multi_class": "ovr",
+        "fit_intercept": true,
+        "intercept_scaling": 1,
+        "class_weight": null,
+        "verbose": 0,
+        "random_state": 42,
+        "max_iter": 5000
+      }
+    },
+    "logreg_C": [0.1, 1.0, 10.0]
+  }
+}
