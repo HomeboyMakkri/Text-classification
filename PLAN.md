@@ -4,8 +4,8 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-05.
-Day05: D5-01…D5-04 завершены 2026-10-18; D5-05…D5-06 pending; prerequisite D4-08 подтверждён.
+Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-06.
+Day05: D5-01…D5-05 завершены 2026-10-18; D5-06 pending; prerequisite D4-08 подтверждён.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -924,9 +924,9 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ## Day05 — error analysis и финальная оценка
 
-Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-04 завершены;
-D5-05…D5-06 pending. Notebook содержит validation analysis, ручной разбор
-и проверенный cache финальной held-out оценки.
+Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-05 завершены;
+D5-06 pending. Notebook содержит validation analysis, ручной разбор,
+проверенный final cache и воспроизводимый offline report.
 Один ID — один промпт Codex. Порядок: D4-08 → D5-01 → D5-02 → D5-03 →
 D5-04 → D5-05 → D5-06. До реализации завершить приёмку Day04; наличие
 D4-07 artifacts само по себе не закрывает D4-08.
@@ -1178,7 +1178,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ### D5-05 — offline отчёт и сохранение результатов анализа
 
-- [ ] Собрать report runner поверх D5-01…D5-04 без новой оценки test.
+- [x] Собрать report runner поверх D5-01…D5-04 без новой оценки test.
 - Зависит от D5-04. CLI/module `models/run_error_analysis_day05.py` читает
   reference, ручные annotations и проверенный final cache; сохраняет таблицы,
   графики, `analysis_summary.json` и `provenance.json` по SPEC §10.
@@ -1197,7 +1197,42 @@ medium тоже разумен. Astra + high имеет смысл при сло
 - Самопроверка: какие artifacts нужны, чтобы связать метрику с конкретным запуском?
 - Промпт: «Выполни только D5-05 из PLAN.md: offline report runner, artifacts,
   docs и notebook checkpoint; используй final cache без нового fit/test predict».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): `models/run_error_analysis_day05.py` предоставляет
+  reusable `run_error_analysis_day05(root)` и report-only CLI
+  `PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.run_error_analysis_day05`.
+  Читает только сохранённые Day02–Day04 reference, manual annotations и
+  `load_final_evaluation` cache; отсутствующий/повреждённый cache не запускает D5-04.
+  Import не выполняет I/O/training. Возвращаемые summary/provenance — TypedDict,
+  чтобы сохранять контракт между notebook cells.
+- Сохраняет 11 Day05 report outputs: analysis/errors/annotated examples,
+  validation counts/normalized CSV/PNG, directed pairs, summary, observations,
+  provenance. Final protocol/marker и test CSV/PNG/metrics — только inputs.
+  CSV/JSON roundtrip, counts/errors/pair denominators, annotation contracts и
+  input immutability проверяются до записи; записанные bytes сверяются повторно.
+- `analysis_summary.json` фиксирует class order, policies, validation/test metrics,
+  denominators и row/group counts отдельно; `observations.md` — фактические
+  validation направления и ручные observations/hypotheses с IDs, отдельно cached
+  final test и ограничения. `provenance.json` содержит 29 input checksums,
+  10 output checksums, runtime versions и hashes frozen protocol/final marker;
+  собственный checksum исключён, циклических ссылок нет. Timestamp отсутствует.
+  Последовательная запись отчёта не является общей multi-file транзакцией.
+- Реальный offline report: candidate linear_svc, validation N=553/errors=84,
+  reviewed 18 rows/18 groups, final cache reused (test N=690, macro F1=0.797050).
+  Две сборки API с запрещёнными Pipeline.fit/predict, CV, network и final-run
+  дали byte-identical все 11 outputs; 34 source/final files неизменны.
+  Отдельный реальный report-only CLI успешно использовал тот же cache.
+- 15 новых offline tests: end-to-end zero-error/reviewed-error fixtures,
+  exact report/API/CLI repeat, пустая hypothesis и CSV quoting/newlines,
+  provenance/roundtrip/input immutability, cache/annotation/input corruption,
+  изменение входа во время сборки и import без I/O. Общий pytest:
+  273 passed, 46 subtests passed; compileall и git diff --check OK.
+  Type gate: 45 project files, 53 notebook modules (5 sequential exports +
+  48 cell-boundary modules), 0 errors/warnings; CLI Pyright не заменяет Pylance.
+- Notebook: отдельный D5-05 section вызывает тот же runner, показывает summary,
+  artifacts и provenance; clean kernels из корня и `notebooks/` подтверждены,
+  outputs сохранены. SHA-256 всех 45 input/final/report files совпали до/после.
+  `docs/day05.md` дополнен командами first-final/report-only, inputs/outputs,
+  repeat/error policies и Day06 boundary. D5-06 и Day06 не начаты.
 
 ### D5-06 — итоговая приёмка и передача Day06
 
@@ -1229,10 +1264,10 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ## Шаблон запроса для следующего чата
 
-D5-04 принят; следующий незакрытый пункт — D5-05:
+D5-05 принят; следующий незакрытый пункт — D5-06:
 
-> Выполни только D5-05 из PLAN.md по AGENTS.md и SPEC §10.
-> Собери offline report runner из reference/annotations/final cache без нового fit/predict.
+> Выполни только D5-06 из PLAN.md по AGENTS.md и SPEC §10.
+> Проверь приёмку Day05 и передачу Day06, используя final cache без нового fit/predict.
 > Выполни общий checkpoint, обнови PLAN с фактическими свидетельствами.
 > Покажи diff stat, предложи commit message, не делай commit.
 

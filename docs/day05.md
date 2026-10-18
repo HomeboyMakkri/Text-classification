@@ -142,7 +142,7 @@ protocol/config/versions, output checksums, IDs/order/labels и воспроиз
 metrics/matrices из cached predictions. **Fit/predict отсутствуют**; реальный
 повтор отдельно проверен с запрещёнными `Pipeline.fit` и `Pipeline.predict`.
 Read-only API `load_final_evaluation(ROOT)` используется notebook и предназначен
-для будущего report-only runner D5-05; при отсутствии cache он не обучает модель.
+для report-only runner D5-05; при отсутствии cache он не обучает модель.
 
 Неполный/повреждённый cache, другой protocol, версии или входы вызывают ошибку
 с путём и инструкцией диагностики. Автоматическое удаление, перезапись и новая
@@ -153,8 +153,92 @@ test оценка запрещены. При partial artifacts сначала я
 
 Notebook с чистого kernel читает final cache без новой оценки и показывает
 отдельный `evaluation_split=test`, cache status, train shape, per-class metrics
-и обе test matrices. D5-05 report-only CLI и Day06 model bundle здесь не создаются.
+и обе test matrices. Отдельный report-only CLI D5-05 описан ниже; Day06 model
+bundle здесь не создаётся.
 
 Самопроверка: почему изменение модели после чтения test нельзя подтвердить
 тем же test как независимым? Почему даже совпавшие validation metrics слабее,
 чем точное совпадение всех replay predictions?
+
+
+## D5-05: offline report-only runner
+
+Отдельная команда сборки отчёта:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.run_error_analysis_day05
+```
+
+При другом рабочем каталоге передать `--root` с путём к корню проекта;
+notebook работает как из корня, так и из `notebooks/`. Reusable API:
+`run_error_analysis_day05(ROOT)`. Это report-only путь: он читает проверенный
+final cache через `load_final_evaluation`, не вызывает fit/predict/CV/download
+и не запускает автоматически команду первой финальной оценки.
+
+Входы: processed data и provenance Day02; прежний Day03 manifest/config/reference;
+Day04 selection/config/predictions/metrics/provenance и CV artifacts; ручные
+`docs/day05_failure_cases.csv`; восемь frozen final artifacts D5-04. Их hashes
+попадают в report provenance. Candidate, параметры, seed, preprocessing,
+class order и splits остаются прежними. Даже test PNG являются cache inputs
+и не перезаписываются отчётом.
+
+В `reports/day05/` заново собираются 11 report outputs:
+
+- `validation_analysis.csv`: все 553 validation строки;
+- `validation_errors.csv`: все 84 ошибки, без удаления duplicates;
+- `validation_examples.csv`: 18 детерминированных examples с ручными annotations;
+- `validation_confusion_{counts,normalized}.{csv,png}`: true rows / predicted columns;
+- `confusion_pairs.csv`: шесть направленных пар с count, true support и долей;
+- `analysis_summary.json`: validation/test metrics отдельно, counts/denominators,
+  group counts, manual category counts, class order и policies;
+- `observations.md`: фактические validation направления, выбранные ID и ручные
+  observation/hypothesis/rationale, затем отдельный frozen test результат и ограничения;
+- `provenance.json`: input/output SHA-256, runtime versions, policies,
+  отдельные hashes frozen protocol и final cache marker.
+
+В provenance 10 output checksums: сам `provenance.json` исключён, циклических
+ссылок нет. Final cache и manual annotations являются inputs. Generated reports
+локальные/ignored; ключевые выводы и ручная разметка сохранены в tracked docs
+выше. Доли categories относятся только к 18 reviewed rows, не к 84 errors
+или всем 553 validation строкам.
+
+Runner проверяет исходные схемы/alignment/checksums, final cache и annotations,
+согласованность counts/errors/pair denominators, CSV/JSON roundtrip и неизменность
+inputs перед записью. CSV сохраняют пустую hypothesis как пустую строку;
+ID/order/raw/clean text не меняются. Затем проверяются записанные bytes.
+Выходы только Day05; Day02–Day04 и final cache не изменяются. Запись отчёта
+последовательная, не общая транзакция: ошибка записи может оставить часть
+report outputs. Их можно воспроизвести report-only командой после диагностики;
+это не даёт права пересоздавать frozen final cache.
+
+При отсутствующем cache сообщение требует **отдельно** выполнить D5-04 командой
+`finnews_sentiment.models.final_evaluation`; при partial artifacts сначала
+необходима диагностика. Повреждённый cache, checksum/config/runtime mismatch,
+пропущенные/лишние annotations или изменение входа во время сборки завершают
+report с ошибкой. Они не превращаются в новую test оценку.
+
+При одинаковых inputs/runtime CSV, JSON, Markdown, PNG и provenance повторяются
+byte-for-byte: timestamp не добавляется. Проверки отдельно запрещают model calls
+и network, проверяют zero-error fixture, reviewed-error fixture, повтор API/CLI,
+пустую hypothesis, input immutability, cache/annotation corruption и import
+без I/O. Реальный report и clean-kernel notebook используют сохранённый final cache.
+
+Один split и малый holdout ограничивают обобщение; std CV не доверительный
+интервал. Duplicate rows не являются независимыми наблюдениями. Нет обещания
+роста метрики или качества для live financial decisions. Day06 inference bundle
+и новая настройка модели в D5-05 не входят.
+
+Самопроверка: какие hashes нужны, чтобы связать macro F1 с конкретными inputs,
+selection и frozen run? Почему checksum самого provenance создаёт цикл?
+Почему повтор отчёта не должен делать новую test prediction?
+
+
+Checkpoint D5-05 (2026-10-18): реальный report-only CLI использовал cache `reused`;
+две API сборки с запрещёнными fit/predict/CV/network дали одинаковые bytes всех
+11 report files. Provenance содержит 29 input hashes и 10 output hashes.
+34 исходных/final files остались неизменны. Notebook выполнен с чистого kernel
+из корня и `notebooks/`: hashes всех 45 input/final/report files совпали до/после.
+Offline pytest: 273 passed, 46 subtests passed (15 новых report tests).
+Type gate: 45 project files и 53 notebook modules (5 sequential + 48 cell-boundary),
+0 errors/warnings; CLI Pyright не является полным запуском Pylance внутри VS Code.
+Compileall и diff check успешны. Итоговая приёмка D5-06 остаётся отдельным пунктом.
