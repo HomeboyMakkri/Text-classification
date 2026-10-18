@@ -605,9 +605,9 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 Детализация `classification_day04.txt` по SPEC §2, §6 и §8. Один ID — один
 самостоятельный промпт Codex; выполнять последовательно D4-01 → D4-08.
-Завершены D4-01…D4-04: протокол зафиксирован, reference проверена, общие CV
-folds построены, baseline и unigram CV измерены. LinearSVC и подбор C пока не
-запускались.
+Завершены D4-01…D4-05: протокол зафиксирован, reference проверена, общие CV
+folds построены, baseline, unigram и LinearSVC CV измерены. Подбор C пока не
+запускался.
 Вход — проверенные Day02 artifacts и сохранённая Day03 baseline reference,
 включая неизменный manifest train/validation/test. Выход — сравнение трёх
 направлений улучшения, выбранная конфигурация и воспроизводимый протокол.
@@ -767,7 +767,7 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ### D4-05 — эксперимент с LinearSVC
 
-- [ ] Сравнить LinearSVC с LogisticRegression при неизменном baseline TF-IDF.
+- [x] Сравнить LinearSVC с LogisticRegression при неизменном baseline TF-IDF.
 - Зависит от D4-04. Создать новый unfitted Pipeline с параметрами D4-01;
   не менять n-grams, vocabulary limit, class_weight или preprocessing.
 - Запустить общий CV runner, сравнить paired fold scores и mean/std с baseline.
@@ -780,7 +780,15 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 - Самопроверка: что меняется при прежних features и другом classifier?
 - Промпт: «Выполни только D4-05 из PLAN.md: LinearSVC experiment на прежних
   TF-IDF и CV folds. Обнови notebook и проверки, без tuning».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): добавлен `build_linear_svc_pipeline` с явными
+  SPEC параметрами; builder возвращает независимые unfitted Pipeline на baseline
+  TF-IDF. Тесты подтверждают параметры, три класса `[0, 1, 2]` и aligned output.
+  Общий CV runner использовал те же folds и 5 000 features. Macro F1 folds
+  0/1/2: 0.762359/0.800847/0.742939, paired delta к baseline
+  +0.127805/+0.102494/+0.083016; mean/std 0.768715/0.024064. Accuracy
+  mean/std 0.836660/0.014334. ConvergenceWarning не было. Notebook clean-kernel
+  исполнен из корня и `notebooks/`; 8 targeted pytest tests passed, type gate
+  0 errors/warnings.
 
 ### D4-06 — ограниченный подбор regularization C
 
