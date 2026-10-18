@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, реализация ещё не начата.
+Day01–Day05 завершены; **day06** детализирован в §11, D6-01 выполнен.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -909,7 +909,27 @@ validation replay status и checksum reference. Day02–Day05 inputs неизм�
 типизированная структура bundle и результаты подготовки доступны notebook
 без зависимости от narrowing в предыдущей cell. Публичные операции:
 явная подготовка/build, `save_bundle` и `load_bundle(Path)`; окончательные
-signatures зафиксировать в D6-01, не создавать framework/registry.
+signatures зафиксированы в D6-01, без framework/registry:
+
+```python
+load_inference_reference(root: Path) -> InferenceReference
+# Будущие операции; D6-01 их ещё не реализует:
+build_inference_bundle(reference: InferenceReference) -> InferenceBundle
+save_bundle(bundle: InferenceBundle, directory: Path, *, reference: InferenceReference) -> Path
+load_bundle(path: Path) -> InferenceBundle
+```
+
+`InferenceReference` содержит отдельные train/validation DataFrames, aligned
+validation predictions, split summary только с counts и
+`FrozenInferenceContract`; test texts/predictions и estimators в нём отсутствуют.
+Contract фиксирует JSON-compatible параметры (ngram tuple → list, dtype → name),
+class/fit/preprocessing policy, IDs, runtime и hashes inputs/final cache.
+`day05_n_features` / `day05_validation_replay` — проверенная metadata прежнего
+cache, не новый Day06 replay. Будущие `BundleMetadata` / `InferenceBundle`
+потребуют fresh Day06 replay и fitted Pipeline. Dataclasses frozen, но
+вложенные DataFrames/dicts остаются mutable; callers не меняют snapshots.
+SHA-256 preprocessing implementation фиксируется при Day06 preparation;
+он не является доказательством исходных bytes кода утраченной Day05 модели.
 
 Один `models/day06/sentiment_bundle.joblib` содержит schema version
 `day06-inference-v1`, fitted `Pipeline` целиком (vectorizer вместе с classifier),

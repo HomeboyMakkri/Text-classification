@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01…D6-08 детализированы по SPEC §11; все pending.
-Следующий исполнимый пункт — D6-01; реализация Day06 не начата.
+Day06: D6-01 выполнен 2026-10-18; D6-02…D6-08 pending по SPEC §11.
+Следующий исполнимый пункт — D6-02.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1296,11 +1296,12 @@ medium тоже разумен. Astra + high имеет смысл при сло
 ## Day06 — inference pipeline и сохранение модели
 
 Планирование выполнено 2026-10-18 по `classification_day06.txt`, SPEC §11
-и принятому handoff D5-06 / `docs/day05.md`. Изменены только PLAN/SPEC;
-bundle, новый notebook и Python code пока не созданы, fit не запускался.
+и принятому handoff D5-06 / `docs/day05.md`; на этапе планирования менялись
+только PLAN/SPEC. D6-01 реализован отдельно: loader/contracts/tests/notebook;
+bundle не создан, реальное обучение не запускалось.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
-D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Все пункты ниже ещё не выполнены.
+D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
 
 Цель: сохранить замороженный TF-IDF/classifier Pipeline и предсказывать новые
 raw texts с прежней `preprocess_text` (`minimal-v1`), без переобучения при inference.
@@ -1334,7 +1335,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-01 — frozen inputs, типизированный контракт и notebook setup
 
-- [ ] Подготовить проверенный read-only вход для сборки inference artifact.
+- [x] Подготовить проверенный read-only вход для сборки inference artifact.
 - Зависит от D5-06. Вход: Day02 data/provenance, Day03 config/manifest,
   Day04 selection/config/reference, Day05 frozen protocol/final cache.
 - В `models/inference_artifact.py` зафиксировать небольшие typed структуры
@@ -1354,7 +1355,41 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-01 из PLAN.md по SPEC §11: frozen input loader,
   typed contracts и notebook setup. Выполни общий checkpoint, обнови PLAN.
   Не обучай/не сохраняй модель, не вызывай predict/test evaluation. Commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): `models/inference_artifact.py` предоставляет
+  `load_inference_reference`, переиспользуя `load_final_evaluation`,
+  `load_day04_inputs` и `load_validation_analysis`. Frozen protocol и marker
+  фиксируются до чтения; input/final hashes сверяются после всех readers.
+  Отсутствующий/partial/corrupt reference не пересоздаётся. Проверяются
+  selection/effective parameters/runtime/policy/classes/IDs/order/groups.
+- Typed `InferenceReference` отдаёт только train `(2210, 5)`, validation
+  `(553, 5)` и validation prediction reference `(553, 3)`, split summary counts
+  и `FrozenInferenceContract`. Candidate `linear_svc`, seed=42,
+  fit policy `day03_train_only`; train 2206 groups, validation 552 groups.
+  28 hashes связывают frozen inputs и восемь final-cache files.
+- Полные параметры нормализованы к saved JSON representation: ngram tuple →
+  list, dtype → name. `day05_n_features=5000` и cached replay `exact_match`
+  явно отделены от ещё не выполненного fresh Day06 build/replay.
+  Future build/save/load signatures зафиксированы в module docstring и SPEC;
+  executable placeholders, model bundle и prediction API не добавлялись.
+- Новый `tests/test_day06_reference.py`: 31 passed. Проверены read-only repeat,
+  detached snapshots, missing/partial/checksum/protocol/runtime/policy errors,
+  validation ID/order/truth semantics даже при обновлённых hashes,
+  изменение input между readers и import без artifact I/O.
+  Model fit/predict/transform/score, CV, final-run и network запрещены при
+  проверке loader. Обучение было только в synthetic fixture setup тестов.
+- Целевой offline regression: D6 reference + Day04 splits + Day05 analysis/final
+  evaluation — 74 passed. Полный pytest suite на этом шаге не запускался.
+  Type gate: 47 project files и 58 notebook modules (6 sequential exports +
+  52 cell-boundary modules), 0 errors / 0 warnings; CLI Pyright не является
+  полным запуском Pylance внутри VS Code. Compileall и diff check успешны.
+- Отдельная real проверка: два повторных loader вызова с запрещёнными model/
+  CV/network/final-run calls дали одинаковые metadata/tables. Все 48 configs/
+  data (включая raw/interim)/Day02–Day05/annotation files SHA-256 неизменны
+  после real audit и notebook execution; `models/day06`/`reports/day06` не созданы.
+- `notebooks/day06_inference.ipynb`: D6-01 цель/теория/вызовы/реальные outputs/
+  интерпретация/самопроверка; три code cells. Notebook выполнен сверху вниз
+  из корня и `notebooks/` в отдельных чистых kernels, outputs сохранены.
+  D6-02…D6-08 не начаты; commit не выполнялся.
 
 ### D6-02 — train-only восстановление Pipeline и validation replay
 
@@ -1540,12 +1575,12 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06 детализирован; следующий исполнимый пункт — D6-01:
+Day06: D6-01 завершён; следующий исполнимый пункт — D6-02:
 
-> Выполни только D6-01 из PLAN.md по SPEC §11 и handoff в docs/day05.md.
-> Подготовь frozen input loader, typed contracts и day06 notebook setup.
+> Выполни только D6-02 из PLAN.md по SPEC §11 и handoff в docs/day05.md.
+> Реализуй явный train-only build и exact validation replay.
 > Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
-> Не обучай/не сохраняй модель, не вызывай predict/test evaluation.
+> Не сохраняй bundle, не меняй модель и не выполняй test transform/predict/score.
 > Покажи diff stat с untracked files, предложи commit message, не делай commit.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
