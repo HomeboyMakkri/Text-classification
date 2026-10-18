@@ -4,8 +4,8 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-03.
-Day05: D5-01…D5-02 завершены 2026-10-18; D5-03…D5-06 pending; prerequisite D4-08 подтверждён.
+Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-04.
+Day05: D5-01…D5-03 завершены 2026-10-18; D5-04…D5-06 pending; prerequisite D4-08 подтверждён.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -924,8 +924,9 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ## Day05 — error analysis и финальная оценка
 
-Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-02 завершены;
-D5-03…D5-06 pending. Notebook содержит validation reference и confusion analysis.
+Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-03 завершены;
+D5-04…D5-06 pending. Notebook содержит validation reference, confusion analysis
+и ручной разбор детерминированных examples.
 Один ID — один промпт Codex. Порядок: D4-08 → D5-01 → D5-02 → D5-03 →
 D5-04 → D5-05 → D5-06. До реализации завершить приёмку Day04; наличие
 D4-07 artifacts само по себе не закрывает D4-08.
@@ -1056,7 +1057,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ### D5-03 — реальные примеры и ручные failure categories
 
-- [ ] Разобрать реальные validation ошибки и записать проверяемые наблюдения.
+- [x] Разобрать реальные validation ошибки и записать проверяемые наблюдения.
 - Зависит от D5-02. Для каждой из шести непустых true→pred пар выбрать до трёх
   примеров по возрастанию `source_row_id`, без cherry-picking; пустые пары
   отметить явно. Показывать raw/clean text, labels, IDs и group ID.
@@ -1077,7 +1078,34 @@ medium тоже разумен. Astra + high имеет смысл при сло
 - Самопроверка: доказывает ли один пример, что модель не понимает отрицания?
 - Промпт: «Выполни только D5-03 из PLAN.md: разбери реальные validation ошибки,
   сохрани annotations/выводы, обнови notebook; не меняй модель и не открывай test».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): `models/failure_cases.py` выбирает первые три
+  source IDs на пару (class order, внутри пары ascending source_row_id), явно
+  отмечает пустые пары, не удаляет duplicate groups. Возвращает group counts
+  по всей validation, всем errors и выбранным examples. Ручные annotations
+  проверяются по точному набору IDs/schema/categories, join one-to-one по ID;
+  observation/rationale непусты, hypothesis допускает пустую строку.
+- Реальные данные: все шесть пар непусты, 18 examples / 18 groups из 84 errors;
+  выбранные groups не повторяются в validation. Всего validation: 553 rows /
+  552 groups, errors: 84 rows / 84 groups. ID 2854/2855 похожи, но это разные
+  exact-clean-text groups. `docs/day05_failure_cases.csv`: вручную разобраны все
+  18 строк; категории financial context 12/18, negation/comparison 3/18,
+  insufficient context/ambiguous label 2/18, other/unclear 1/18. Denominator
+  относится только к просмотренным examples; остальные категории не навязаны.
+- `docs/day05.md` и notebook содержат четыре наблюдения с IDs/направлениями,
+  отделённые hypotheses и две приоритетные будущие train/CV проверки; причины
+  ошибок не объявлены доказанными, labels/candidate/config не менялись.
+  Сохранены ignored `validation_analysis.csv`, `validation_errors.csv` и
+  annotated `validation_examples.csv`; full errors отделены от examples.
+- Checkpoint: 21 новый offline test — deterministic order/cap, zero errors,
+  пустые пары, duplicate groups, blank hypothesis, annotation ID/schema/category
+  contracts и исключение train/test IDs. Общий pytest: 239 passed,
+  46 subtests passed; compileall и git diff --check успешны. Type gate:
+  41 project files, 49 notebook modules (5 sequential exports + 44 cell-boundary
+  modules), 0 errors/warnings. CLI Pyright не заменяет Pylance внутри VS Code.
+- Notebook выполнен с чистого kernel из корня и `notebooks/`, все реальные
+  examples/annotations и outputs сохранены; SHA-256 25 исходных inputs и файла
+  ручных annotations до/после совпали. Fit/predict/CV/test evaluation не
+  запускались, test examples не просматривались; D5-04 не начат.
 
 ### D5-04 — freeze и однократная финальная held-out оценка
 
@@ -1164,10 +1192,10 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ## Шаблон запроса для следующего чата
 
-D5-02 принят; следующий незакрытый пункт — D5-03:
+D5-03 принят; следующий незакрытый пункт — D5-04:
 
-> Выполни только D5-03 из PLAN.md по AGENTS.md и SPEC §10.
-> Выбери реальные validation examples и выполни ручной разбор без fit/test evaluation.
+> Выполни только D5-04 из PLAN.md по AGENTS.md и SPEC §10.
+> Зафиксируй frozen protocol и выполни финальную test оценку с проверенным cache/replay.
 > Выполни общий checkpoint, обнови PLAN с фактическими свидетельствами.
 > Покажи diff stat, предложи commit message, не делай commit.
 
