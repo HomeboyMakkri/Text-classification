@@ -18,10 +18,34 @@ ROOT = Path(__file__).resolve().parents[1]
         ('answer: int = 42', False, 0, '0 errors'),
         ('answer: int = "wrong"', False, 1, 'not assignable'),
         ('answer: int = 42', True, 2, 'Incomplete Pyright coverage'),
+        (
+            [
+                'def payload() -> dict[str, object]:\n'
+                '    return {"selected": {"per_class": []}}\n'
+                'metrics = payload()["selected"]\n'
+                'if not isinstance(metrics, dict):\n'
+                '    raise TypeError()\n',
+                'rows = metrics["per_class"]',
+            ],
+            False, 1, '__getitem__',
+        ),
+        (
+            [
+                'from typing import TypedDict\n'
+                'class Metrics(TypedDict):\n'
+                '    per_class: list[int]\n'
+                'def payload() -> Metrics:\n'
+                '    return {"per_class": []}\n'
+                'metrics = payload()\n',
+                'rows = metrics["per_class"]',
+            ],
+            False, 0, '0 errors',
+        ),
     ],
 )
 def test_gate_checks_notebook_types_and_coverage(
-    tmp_path: Path, source: str, exclude_exports: bool, expected_code: int, expected_message: str,
+    tmp_path: Path, source: str | list[str], exclude_exports: bool,
+    expected_code: int, expected_message: str,
 ) -> None:
     (tmp_path / "scripts").mkdir()
     (tmp_path / "notebooks").mkdir()
@@ -30,7 +54,8 @@ def test_gate_checks_notebook_types_and_coverage(
     if exclude_exports:
         config["exclude"] = ["notebook-types-*/**"]
     (tmp_path / "pyrightconfig.json").write_text(json.dumps(config), encoding="utf-8")
-    notebook = {"cells": [{"cell_type": "code", "source": [source]}]}
+    sources = [source] if isinstance(source, str) else source
+    notebook = {"cells": [{"cell_type": "code", "source": [text]} for text in sources]}
     (tmp_path / "notebooks/probe.ipynb").write_text(json.dumps(notebook), encoding="utf-8")
 
     result = subprocess.run(

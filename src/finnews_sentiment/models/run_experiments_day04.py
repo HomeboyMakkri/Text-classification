@@ -1,12 +1,13 @@
 """Run, select and validate the fixed Day04 candidate set offline."""
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 import hashlib
 from importlib.metadata import version
 from io import BytesIO
 import json
 from pathlib import Path
 import platform
+from typing import Literal, NotRequired, TypedDict
 import warnings
 
 import numpy as np
@@ -35,6 +36,46 @@ LOGREG_C_CANDIDATES = {
 }
 
 
+class ClassMetricsPayload(TypedDict):
+    """JSON fields for one class, preserved across notebook cells."""
+
+    class_id: int
+    class_name: str
+    precision: float
+    recall: float
+    f1: float
+    support: int
+
+
+class ClassificationPayload(TypedDict):
+    """JSON representation of the shared classification metrics."""
+
+    n_samples: int
+    accuracy: float
+    macro_f1: float
+    per_class: list[ClassMetricsPayload]
+
+
+class MetricsDeltaPayload(TypedDict):
+    """Absolute and relative validation differences from Day03."""
+
+    macro_f1_absolute: float
+    macro_f1_relative_percent: float | None
+    accuracy_absolute: float
+
+
+class Day04MetricsPayload(TypedDict):
+    """Stable nested return contract; callers need no flow-based narrowing."""
+
+    evaluation_split: Literal["validation"]
+    selected_candidate_id: str
+    class_order: list[str]
+    selected: ClassificationPayload
+    day03_baseline: ClassificationPayload
+    delta: MetricsDeltaPayload
+    confirmation_warnings: NotRequired[list[str]]
+
+
 @dataclass(frozen=True)
 class Day04ArtifactPaths:
     """Paths written by the final Day04 comparison run."""
@@ -59,7 +100,7 @@ class Day04Run:
     cv_summary: pd.DataFrame
     selection: dict[str, object]
     validation_predictions: pd.DataFrame
-    metrics: dict[str, object]
+    metrics: Day04MetricsPayload
     artifacts: Day04ArtifactPaths
 
 
@@ -195,17 +236,30 @@ def select_cv_winner(cv_summary: pd.DataFrame) -> tuple[str, tuple[str, ...]]:
     return tied[0], tied
 
 
-def _classification_payload(metrics: ClassificationMetrics) -> dict[str, object]:
-    payload = asdict(metrics)
-    payload["per_class"] = [asdict(item) for item in metrics.per_class]
-    return payload
+def _classification_payload(metrics: ClassificationMetrics) -> ClassificationPayload:
+    return {
+        "n_samples": metrics.n_samples,
+        "accuracy": metrics.accuracy,
+        "macro_f1": metrics.macro_f1,
+        "per_class": [
+            {
+                "class_id": item.class_id,
+                "class_name": item.class_name,
+                "precision": item.precision,
+                "recall": item.recall,
+                "f1": item.f1,
+                "support": item.support,
+            }
+            for item in metrics.per_class
+        ],
+    }
 
 
 def _metrics_payload(
     selected_candidate_id: str,
     selected: ClassificationMetrics,
     baseline: ClassificationMetrics,
-) -> dict[str, object]:
+) -> Day04MetricsPayload:
     delta_macro_f1 = selected.macro_f1 - baseline.macro_f1
     relative_delta = delta_macro_f1 / baseline.macro_f1 * 100 if baseline.macro_f1 > 0 else None
     return {

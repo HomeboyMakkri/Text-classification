@@ -95,8 +95,8 @@ Type gate должен печатать число реально провере
 проверенных файлов меньше ожидаемого. Регрессионные tests проверяют валидную
 ячейку, ошибку типов в notebook и исключённые из анализа exports.
 В D4-06 `idxmax()` возвращал слишком общий `Hashable` для `.loc`; теперь
-используются числовая позиция `argmax()` и `.iloc`. В D4-07 перед обращением
-к вложенным metrics проверяется, что значения `dict[str, object]` — словари.
+используются числовая позиция `argmax()` и `.iloc`. В D4-07 вложенные metrics имеют объявленный `TypedDict` contract; типы
+`per_class` и `delta` известны и в следующей cell без локальных guards.
 Runtime success не доказывает корректность статических типов.
 
 ## Передача Day05
@@ -119,3 +119,30 @@ Runtime success не доказывает корректность статич�
   локально в `.cache/day04-checkpoints/`. В основной notebook перенесён только
   output нового D4-08; прежние outputs сохранены, пользовательские kernels
   не прерывались. Day05/test evaluation/inference не запускались.
+
+## Исправление повторных Pylance diagnostics
+
+После первого исправления D4-08 всё ещё зависел от `isinstance` narrowing в
+D4-07: исходный контракт `Day04Run.metrics: dict[str, object]` был слишком
+широким. Sequential `.py` export сохранял narrowing и не обнаруживал присланные
+ошибки `object.__getitem__` в следующей cell. Поэтому прежняя зелёная проверка
+не была достаточным подтверждением исправления этих notebook diagnostics.
+
+Теперь runner возвращает вложенный `Day04MetricsPayload` (`TypedDict`) с точными
+типами selected/baseline/per_class/delta. JSON schema и значения сохраняются.
+Gate дополнительно экспортирует каждую code cell отдельным module с импортом
+контекста предыдущего. Эта проверка воспроизводила ровно две сообщённые ошибки
+до исправления и проходит после него. Она дополняет sequential export и не
+обещает полное совпадение с VS Code Pylance. Проверяется 4 sequential exports
+и 37 cell modules (41 файл); regression cases проверяют потерю narrowing между
+cells и корректный TypedDict. Порядок обязательных действий агента закреплён
+в AGENTS.md: конкретные Pylance diagnostics требуют воспроизведения и regression,
+а не предположения о старом кеше редактора.
+
+Проверка после коррекции: 192 tests и 46 subtests passed, type gate без
+errors/warnings (35 Python файлов и 41 notebook-export файл), compileall и
+`git diff --check` прошли. Два clean-kernel прогона из root/`notebooks/`
+выполнили по 9/9 code cells; все 9 artifact hashes и 11 input hashes остались
+прежними. Copies/evidence — `.cache/pylance-cell-fix/`; исходные outputs и
+пользовательские kernels сохранены. Pylance внутри редактора напрямую этим
+CLI не запускается.

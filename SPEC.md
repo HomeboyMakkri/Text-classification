@@ -658,6 +658,13 @@ reference требуют воспроизвести Day02/Day03 указанны
 exports находятся в нескрытой временной директории; `filesAnalyzed` должен
 быть не меньше числа exports. Нулевой охват не считается успешной проверкой.
 Runtime tests и clean-kernel execution не заменяют статическую проверку типов.
+Дополнительно проверяются отдельные cells как цепочка modules с импортом
+предыдущего контекста: так guard в одной cell не скрывает слишком широкий
+объявленный тип в следующей. Это консервативная проверка cell boundaries,
+не полная эмуляция Pylance. `Day04Run.metrics` возвращает вложенные TypedDict
+для selected/baseline/per_class/delta; потребители не зависят от межъячеечного
+flow narrowing. Диагностика пользователя требует regression case даже при
+успешном sequential export.
 
 ## 10. Контракт day05 — error analysis и frozen final evaluation
 

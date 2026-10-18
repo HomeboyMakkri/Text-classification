@@ -907,6 +907,20 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
   прежние outputs и добавлен output D4-08. Пользовательские kernels не прерывались.
   Победитель остаётся LinearSVC: CV macro F1 0.768715, validation 0.805961
   против baseline 0.720965; test не передавался estimator. Day05 не начат.
+- Коррекция повторных Pylance diagnostics (2026-10-18): прежний guard в D4-07
+  не задавал устойчивый тип для D4-08. Склеенный export проходил, но отдельные
+  cell modules воспроизвели ровно две сообщённые ошибки object.__getitem__.
+  `Day04Run.metrics` теперь имеет вложенный TypedDict contract; guards из
+  notebook удалены. Gate проверяет sequential exports и cell-boundary modules:
+  35 Python файлов + 4 exports/37 cells (41 файл), 0 errors/warnings. Добавлены
+  два regression cases на потерю narrowing и корректный TypedDict; в AGENTS
+  закреплена обязательная репродукция конкретных Pylance diagnostics.
+  Полный suite: 192 tests и 46 subtests passed; compileall/diff check прошли.
+  Clean-kernel из root и `notebooks/`: по 9/9 code cells без ошибок, все 9
+  artifact hashes и 11 input hashes прежние. Copies/evidence сохранены в
+  `.cache/pylance-cell-fix/`, прежние notebook outputs/kernels не изменялись.
+  CLI gate не является прямым запуском Pylance в редакторе; полнота его
+  совпадения с Pylance не заявляется. Day05 не начат.
 
 ## Day05 — error analysis и финальная оценка
 
