@@ -14,3 +14,6 @@ reports/
 !/reports/day03/
 /reports/day03/*
 !/reports/day03/observations.md
+!/reports/day04/
+/reports/day04/*
+!/reports/day04/observations.md

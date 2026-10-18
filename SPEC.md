@@ -654,6 +654,11 @@ ID: цель → краткая теория → вызов кода → фак�
 reference требуют воспроизвести Day02/Day03 указанными в `docs/day02.md` и
 `docs/day03.md` offline-командами; synthetic fixtures не подставляются.
 
+Приёмка D4-08 включает проверку фактического coverage type gate: notebook
+exports находятся в нескрытой временной директории; `filesAnalyzed` должен
+быть не меньше числа exports. Нулевой охват не считается успешной проверкой.
+Runtime tests и clean-kernel execution не заменяют статическую проверку типов.
+
 ## 10. Контракт day05 — error analysis и frozen final evaluation
 
 ### Цель, порядок и ML boundary

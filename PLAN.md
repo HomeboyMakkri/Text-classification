@@ -4,8 +4,8 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-07 отмечены завершёнными; D4-08 pending.
-Day05: D5-01…D5-06 спланированы; реализация после приёмки D4-08.
+Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-01.
+Day05: D5-01…D5-06 pending; prerequisite D4-08 подтверждён.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -868,7 +868,7 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ### D4-08 — выводы и итоговая приёмка Day04
 
-- [ ] Завершить учебный checkpoint и подтвердить воспроизводимость дня.
+- [x] Завершить учебный checkpoint и подтвердить воспроизводимость дня.
 - Зависит от D4-07. Выход: полный `day04_experiments.ipynb`,
   `docs/day04.md` с командами и `reports/day04/observations.md` с выводами.
   Согласовать ignore policy: итоговые observations доступны для review,
@@ -888,7 +888,25 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 - Самопроверка: что даёт основание выбрать модель, а что остаётся неизвестным?
 - Промпт: «Выполни только D4-08 из PLAN.md: выводы, документация и итоговая
   приёмка Day04. Не начинай Day05; запиши фактические проверки».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): добавлены `docs/day04.md`, tracked
+  `reports/day04/observations.md` и D4-08 notebook section с проверкой hashes,
+  per-class trade-offs, выводами и самопроверкой. Ignore policy сохраняет
+  observations для review, generated reports остаются локальными.
+  Полный suite: 190 pytest tests и 46 subtests passed; compileall src/tests/scripts
+  и `git diff --check` прошли. Исправленный type gate: 35 Python файлов и
+  4 notebook exports, 0 errors/warnings. Обнаружено, что прежний gate пропускал
+  notebook exports в скрытой `.cache` (`filesAnalyzed=0`): прежнее свидетельство
+  D4-07 о type gate не подтверждало типы code cells. Теперь exports в нескрытой
+  временной папке, coverage проверяется по JSON summary, есть 3 регрессионных
+  pytest cases (валидная/ошибочная ячейка, пропущенный анализ). Исправлены
+  `.loc[idxmax()]` с Hashable в D4-06 и доступ к вложенным object metrics D4-07.
+  Два реальных offline CLI запуска и два clean-kernel notebook исполнения
+  (из root/`notebooks/`, 9/9 code cells каждое) дали одинаковые hashes всех
+  9 generated artifacts и сохранили 11 input hashes. Полные executed copies и
+  acceptance hashes: `.cache/day04-checkpoints/`; в исходном notebook сохранены
+  прежние outputs и добавлен output D4-08. Пользовательские kernels не прерывались.
+  Победитель остаётся LinearSVC: CV macro F1 0.768715, validation 0.805961
+  против baseline 0.720965; test не передавался estimator. Day05 не начат.
 
 ## Day05 — error analysis и финальная оценка
 
@@ -1094,7 +1112,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ## Шаблон запроса для следующего чата
 
-Следующий незакрытый пункт сейчас — D4-08. После его приёмки:
+D4-08 принят; следующий незакрытый пункт — D5-01:
 
 > Выполни только D5-01 из PLAN.md по AGENTS.md и SPEC §10.
 > Создай validation analysis table и начальный day05 notebook без fit/test evaluation.
