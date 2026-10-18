@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, D6-01 выполнен.
+Day01–Day05 завершены; **day06** детализирован в §11, D6-01/D6-02 выполнены.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -903,6 +903,15 @@ Mismatch или `ConvergenceWarning` прекращают build до публи�
 Сохранять train IDs или их однозначный checksum, N_train, N_features,
 validation replay status и checksum reference. Day02–Day05 inputs неизменны.
 
+D6-02 предоставляет явный `build_inference_bundle(reference)` без записи
+на диск. До model calls он повторно проверяет artifacts и переданные snapshots,
+raw→clean parity и полные candidate parameters. Перед fit и после replay
+сверяются input hashes, preprocessing implementation/policy и runtime.
+`BundleMetadata` возвращает `n_train`, `n_validation`, `n_features`, fresh
+`validation_replay=exact_match` и `validation_reference_sha256` (checksum
+исходного Day04 CSV); contract содержит train IDs в manifest order.
+Новый Day06 result существует в памяти, serialization остаётся D6-03.
+
 ### Bundle, manifest и загрузка (D6-03)
 
 Предлагаемая reusable логика — `models/inference_artifact.py`; базовая
@@ -913,8 +922,8 @@ signatures зафиксированы в D6-01, без framework/registry:
 
 ```python
 load_inference_reference(root: Path) -> InferenceReference
-# Будущие операции; D6-01 их ещё не реализует:
 build_inference_bundle(reference: InferenceReference) -> InferenceBundle
+# Будущие операции D6-03:
 save_bundle(bundle: InferenceBundle, directory: Path, *, reference: InferenceReference) -> Path
 load_bundle(path: Path) -> InferenceBundle
 ```
@@ -925,8 +934,8 @@ validation predictions, split summary только с counts и
 Contract фиксирует JSON-compatible параметры (ngram tuple → list, dtype → name),
 class/fit/preprocessing policy, IDs, runtime и hashes inputs/final cache.
 `day05_n_features` / `day05_validation_replay` — проверенная metadata прежнего
-cache, не новый Day06 replay. Будущие `BundleMetadata` / `InferenceBundle`
-потребуют fresh Day06 replay и fitted Pipeline. Dataclasses frozen, но
+cache, не новый Day06 replay. `BundleMetadata` / `InferenceBundle`
+возвращаются после fresh Day06 replay и содержат fitted Pipeline. Dataclasses frozen, но
 вложенные DataFrames/dicts остаются mutable; callers не меняют snapshots.
 SHA-256 preprocessing implementation фиксируется при Day06 preparation;
 он не является доказательством исходных bytes кода утраченной Day05 модели.

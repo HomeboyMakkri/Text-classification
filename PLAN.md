@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01 выполнен 2026-10-18; D6-02…D6-08 pending по SPEC §11.
-Следующий исполнимый пункт — D6-02.
+Day06: D6-01/D6-02 выполнены 2026-10-18; D6-03…D6-08 pending по SPEC §11.
+Следующий исполнимый пункт — D6-03.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1297,8 +1297,9 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 Планирование выполнено 2026-10-18 по `classification_day06.txt`, SPEC §11
 и принятому handoff D5-06 / `docs/day05.md`; на этапе планирования менялись
-только PLAN/SPEC. D6-01 реализован отдельно: loader/contracts/tests/notebook;
-bundle не создан, реальное обучение не запускалось.
+только PLAN/SPEC. D6-01 реализовал loader/contracts/tests/notebook;
+D6-02 — явный train-only build и fresh validation replay. Fitted result
+существует в памяти, model files ещё не созданы.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
 D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
@@ -1393,7 +1394,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-02 — train-only восстановление Pipeline и validation replay
 
-- [ ] Воспроизвести замороженное решение отдельной явной build-функцией.
+- [x] Воспроизвести замороженное решение отдельной явной build-функцией.
 - Зависит от D6-01. Вход: проверенный reference; выход: fitted Pipeline
   в памяти и typed build result с train/features counts и replay evidence.
 - Использовать прежний builder выбранного candidate; до fit сверить полные
@@ -1414,7 +1415,45 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-02 из PLAN.md по SPEC §11: явный train-only build
   и exact validation replay. Обнови notebook/PLAN, выполни общий checkpoint.
   Не сохраняй bundle, не меняй модель и не предсказывай test. Commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): `build_inference_bundle(reference)` в
+  `models/inference_artifact.py` заново проверяет artifacts и mutable caller
+  snapshots до model calls, raw→clean parity на всём train/validation,
+  selected/full effective parameters прежнего candidate builder.
+  Input hashes/preprocessing implementation/runtime сверяются до fit
+  и после replay; изменение vocabulary/IDF/classes при predict запрещено.
+- На реальных данных выбранный `linear_svc` обучен только на прежнем clean
+  train: 2210 rows / 2206 groups, четыре retained duplicate rows сверх первого,
+  прежний manifest order. Instrumented fit/fit_transform подтвердили sparse
+  TF-IDF `(2210, 5000)`; ровно один validation predict `(553,)` дал exact match
+  всех 553 Day04 predictions. IDs/order/truth проверены до fit; classes `[0,1,2]`,
+  ConvergenceWarning не было. Test transform/predict/score не выполнялись.
+- Возврат — typed `InferenceBundle` в памяти; `BundleMetadata` содержит fresh
+  replay, n_train=2210, n_validation=553, n_features=5000 и SHA-256 validation
+  reference CSV. Сохраняются frozen train IDs/parameters/fit policy; новых
+  selection, metrics, serialization или inference API нет.
+- Новый `tests/test_day06_build.py`: 26 passed. Проверены точные train-only
+  fit/TF-IDF calls и single validation replay; уникальные validation/test
+  tokens fixtures не попали в vocabulary. Проверены mutation metadata/tables,
+  raw-clean mismatch на обоих splits, builder mismatch до fit, replay IDs/shape,
+  unknown labels, wrong fitted class order, ConvergenceWarning при fit/replay,
+  vocabulary mutation, изменение frozen input во время fit и repeat state.
+  Fixtures synthetic; real-data audit отделён от offline tests.
+- Целевой regression: D6 reference/build и Day05 final evaluation — 76 passed.
+  Полный pytest suite на этом пункте не запускался. Type gate: 48 project files
+  и 60 notebook modules (6 sequential + 54 cell-boundary), 0 errors/warnings.
+  CLI Pyright не является полным запуском Pylance внутри VS Code.
+  Compileall и diff check успешны.
+- Реальный audit запрещал test/CV/final-run/network/serialization calls;
+  разрешены fit только exact train и transform/predict только exact validation.
+  Все 48 configs/data (включая raw/interim)/Day02–Day05/annotation files SHA-256
+  неизменны после audit и обоих notebook runs; `models/day06`/`reports/day06`
+  не созданы. Fit при каждом D6-02 clean-kernel run явный по плану; после
+  D6-03 он будет вынесен в отдельную build-команду.
+- Notebook содержит отдельный D6-02 section с двумя новыми code cells;
+  все пять cells выполнены из корня и `notebooks/` в отдельных чистых kernels,
+  outputs сохранены. Fresh replay отделён от Day05 cached metadata и не
+  объявлен доказательством идентичности утраченных весов или новой независимой
+  quality evaluation. D6-03…D6-08 не начаты, commit не выполнялся.
 
 ### D6-03 — joblib bundle, manifest, load и reuse без fit
 
@@ -1575,12 +1614,13 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01 завершён; следующий исполнимый пункт — D6-02:
+Day06: D6-01/D6-02 завершены; следующий исполнимый пункт — D6-03:
 
-> Выполни только D6-02 из PLAN.md по SPEC §11 и handoff в docs/day05.md.
-> Реализуй явный train-only build и exact validation replay.
+> Выполни только D6-03 из PLAN.md по SPEC §11 и handoff в docs/day05.md.
+> Реализуй joblib bundle, manifest, проверенный load и reuse без fit.
+> Вынеси build в явную команду; notebook должен читать готовый bundle без fit.
 > Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
-> Не сохраняй bundle, не меняй модель и не выполняй test transform/predict/score.
+> Не меняй модель и не выполняй test transform/predict/score.
 > Покажи diff stat с untracked files, предложи commit message, не делай commit.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
