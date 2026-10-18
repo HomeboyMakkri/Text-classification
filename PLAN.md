@@ -4,8 +4,9 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-06.
-Day05: D5-01…D5-05 завершены 2026-10-18; D5-06 pending; prerequisite D4-08 подтверждён.
+Day04: D4-01…D4-08 завершены 2026-10-18.
+Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
+Следующий этап — детализация Day06 по roadmap; реализация Day06 не начата.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -924,9 +925,9 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ## Day05 — error analysis и финальная оценка
 
-Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-05 завершены;
-D5-06 pending. Notebook содержит validation analysis, ручной разбор,
-проверенный final cache и воспроизводимый offline report.
+Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-06 завершены.
+Notebook содержит validation analysis, ручной разбор, проверенный final cache,
+воспроизводимый offline report и итоговый checkpoint с handoff Day06.
 Один ID — один промпт Codex. Порядок: D4-08 → D5-01 → D5-02 → D5-03 →
 D5-04 → D5-05 → D5-06. До реализации завершить приёмку Day04; наличие
 D4-07 artifacts само по себе не закрывает D4-08.
@@ -1236,7 +1237,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ### D5-06 — итоговая приёмка и передача Day06
 
-- [ ] Проверить весь Day05 и зафиксировать фактическое выполнение критериев дня.
+- [x] Проверить весь Day05 и зафиксировать фактическое выполнение критериев дня.
 - Зависит от D5-05. Полный pytest suite, type gate, compileall, diff check;
   отдельно реальные artifact checks, повтор offline report CLI и полный notebook
   из корня/`notebooks/` в чистых kernels с reuse одного final cache.
@@ -1253,7 +1254,43 @@ medium тоже разумен. Astra + high имеет смысл при сло
   на новых текстах отличаются по назначению и доступным действиям?
 - Промпт: «Выполни только D5-06 из PLAN.md: приёмка Day05, полный checkpoint,
   документы и фактические свидетельства; не начинай Day06, commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): приёмка SPEC §10 выполнена; production Python
+  не менялся. `docs/day05.md` и отдельный D5-06 notebook section объясняют macro F1,
+  дисбаланс, row/group weighting, ограниченность одного split/малого holdout,
+  conditional nature test после train/CV selection и validation diagnosis;
+  std CV не объявлен CI, live financial quality/прирост не обещаны.
+- Offline suite: `venv/bin/python -m pytest tests -v` — 273 passed,
+  46 subtests passed. Type gate — 45 project files и 54 notebook modules
+  (5 sequential exports + 49 cell-boundary modules), 0 errors/warnings.
+  CLI Pyright не является полным запуском Pylance внутри VS Code.
+  `compileall -q src tests` и `git diff --check` успешны.
+- Отдельный real audit: exact IDs/order/true labels, raw/clean text, annotation
+  coverage, class order, counts/trace/support/normalized denominators и hash chain
+  согласованы. Train: 2210 rows/2206 groups; validation: 553/552; test: 690/690.
+  Errors: 84 rows/84 groups; reviewed: 18 rows/18 groups. Все splits disjoint
+  по source IDs и groups; examples — только validation errors.
+- Frozen test остался прежним: accuracy=0.8565217391, macro F1=0.7970501582;
+  protocol SHA-256
+  `4a9a778085b8f082a20374bf46e1a2053a72aa9a6ee872e3e252dbb8a2570a37`.
+  Cache 8 files и report 11 outputs согласованы; provenance 29 input hashes /
+  10 output hashes, без self-checksum. Все четыре PNG успешно декодированы.
+- Report-only CLI выполнен дважды с запрещёнными real fit/predict/CV/network,
+  оба раза cache reused. Все 48 configs/data (raw/interim/processed)/Day02–Day05/
+  annotation files SHA-256 неизменны; report outputs byte-identical.
+- Полный notebook исполнен из корня и `notebooks/` в отдельных чистых kernels:
+  шесть sections D5-01…D5-06, 12 code cells с outputs, четыре PNG сохранены,
+  ошибок execution нет. Финальный runtime checkpoint сверяет IDs/classes,
+  annotations/counts/denominators, protocol/contracts и input/output hashes.
+  Реальные artifact checks и clean-kernel execution отделены от offline tests.
+- Handoff Day06: frozen selection/полные параметры, minimal-v1 `preprocess_text`,
+  class mapping/order, Day03 manifest/train IDs, runtime versions/checksums и
+  fit policy day03_train_only. Clean text → TF-IDF → LinearSVC; train `(2210, 5000)`,
+  predictions `(N,)`. Fitted Pipeline пока не сохранён как bundle. Day06 должен
+  воспроизвести прежнее решение без refit на validation/test и без удаления
+  retained train duplicates; реализация bundle/API и детализация Day06 не начаты.
+- Ограничения multi-file writes и partial cache зафиксированы: completion marker
+  не транзакция, exactly-once при crash до cache не гарантирован; автоматическая
+  переоценка test не допускается. Day05 принят, commit не выполнялся.
 
 ## Roadmap day06–day07
 
@@ -1264,12 +1301,13 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ## Шаблон запроса для следующего чата
 
-D5-05 принят; следующий незакрытый пункт — D5-06:
+Day05 принят; следующий этап — детализация Day06 по roadmap, без реализации:
 
-> Выполни только D5-06 из PLAN.md по AGENTS.md и SPEC §10.
-> Проверь приёмку Day05 и передачу Day06, используя final cache без нового fit/predict.
-> Выполни общий checkpoint, обнови PLAN с фактическими свидетельствами.
+> Детализируй Day06 в PLAN.md по SPEC и handoff в docs/day05.md.
+> Раздели artifact bundle, load/predict API, roundtrip consistency и demos
+> на небольшие проверяемые пункты; сохрани frozen config и day03_train_only fit policy.
+> Не обучай модель, не переоценивай test и не начинай реализацию Day06.
 > Покажи diff stat, предложи commit message, не делай commit.
 
-При запросе целого Day05 выполнять его ID последовательно после D4-08;
-не переходить к Day06. Рекомендуемые модель и effort указаны в таблице Day05.
+При запросе одного ID выполнять только его. При запросе целого будущего дня
+сначала детализировать roadmap до реализации; не добавлять опережающие features.

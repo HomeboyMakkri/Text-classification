@@ -241,4 +241,96 @@ Checkpoint D5-05 (2026-10-18): реальный report-only CLI использо
 Offline pytest: 273 passed, 46 subtests passed (15 новых report tests).
 Type gate: 45 project files и 53 notebook modules (5 sequential + 48 cell-boundary),
 0 errors/warnings; CLI Pyright не является полным запуском Pylance внутри VS Code.
-Compileall и diff check успешны. Итоговая приёмка D5-06 остаётся отдельным пунктом.
+Compileall и diff check успешны. Приёмка D5-06 зафиксирована отдельно ниже.
+
+## D5-06: приёмка Day05 и handoff Day06
+
+Day05 принят 2026-10-18. D5-01…D5-06 имеют отдельные notebook sections;
+источники, schemas/alignment, matrices, ручные annotations, frozen final cache
+и report-only воспроизведение проверены. На этом этапе production Python code
+не менялся; добавлен итоговый учебный notebook checkpoint и документация.
+
+### Результаты и границы интерпретации
+
+Validation: 553 строки / 552 groups, 84 ошибки / 84 groups,
+18 reviewed examples / 18 groups. На test 690 строк / 690 groups:
+accuracy **0.856522**, macro F1 **0.797050**. Это прежний frozen result;
+нового test predict или real fit при приёмке не было.
+
+Macro F1 — среднее F1 трёх классов с равными весами. Accuracy считает долю
+верных ответов по строкам; neutral занимает 428/690 test строк, поэтому общий
+accuracy не заменяет per-class precision/recall/F1. Test diagnostics остаются
+описательными и не запускают изменение модели.
+
+Metrics имеют row weighting: каждая сохранённая строка учитывается, включая
+same-label duplicates. Непересечение exact-text groups между splits защищает
+от утечки, но не доказывает независимость повторов или похожих предложений.
+Частоты ручных categories относятся только к 18 просмотренным examples.
+
+Test оценивает **одно решение, выбранное по train-only CV и диагностированное
+на validation**, условно на этой процедуре выбора, данном dataset, preprocessing
+и split. Это не независимая оценка всех будущих моделей или новых источников
+новостей. Validation уже просмотрена; test тоже нельзя использовать как
+независимое подтверждение настроек, выбранных по его результатам. Один split
+и малый holdout ограничивают выводы; std CV не доверительный интервал.
+Прирост метрик, live financial quality и перенос на другой поток данных
+не доказаны. Сравнения validation/test не являются paired experiment.
+
+### Проверенный handoff
+
+| Контракт | Источник / правило для Day06 |
+| --- | --- |
+| Candidate | `reports/day04/selection.json`: `linear_svc`, выбран по train-only CV |
+| Полные параметры | `reports/day05/frozen_protocol.json`: `parameters` из selection и полный `pipeline_parameters` |
+| TF-IDF | clean text; word `(1, 2)`, max_features=5000, lowercase=False; остальные параметры брать из protocol |
+| LinearSVC | C=1.0, loss=squared_hinge, penalty=l2, dual=auto, tol=0.0001, max_iter=5000, random_state=42; остальные параметры брать из protocol |
+| Preprocessing | `preprocess_text` в `features/preprocess.py`, policy `minimal-v1`; числа, отрицания и валюты сохраняются |
+| Classes | `negative`, `neutral`, `positive`; `0=negative, 1=neutral, 2=positive` |
+| Train / порядок | прежний `data/processed/day03/splits.csv` и train IDs protocol: 2210 rows / 2206 groups |
+| Fit policy | `day03_train_only`; vocabulary/IDF и classifier fit только на прежнем train, без validation/test |
+| Reference | 553 validation predictions Day04; replay status `exact_match` записан в final cache |
+| Runtime | versions из protocol; отличие версий/config/input hashes вызывает явную ошибку cache |
+| Evidence | protocol, final marker и report provenance связывают input/output hashes; marker не содержит свой checksum |
+
+Frozen protocol SHA-256:
+`4a9a778085b8f082a20374bf46e1a2053a72aa9a6ee872e3e252dbb8a2570a37`.
+
+Fitted Pipeline пока **не сохранён как bundle**. Day06 должен воспроизвести
+прежний candidate/config/fit policy и проверить результат в рамках своего
+согласованного контракта. По умолчанию нельзя refit на train+validation/test,
+удалять retained train duplicates или менять порядок/seed: это изменило бы
+обученное решение. Raw input для будущего inference должен проходить тот же
+`preprocess_text`, затем сохранённые vectorizer/classifier без fit. Создание
+bundle, serialization и API в D5-06 не выполнялись. Перед реализацией Day06
+roadmap необходимо детализировать в PLAN.
+
+### Фактические проверки
+
+- `venv/bin/python -m pytest tests -v`: **273 passed, 46 subtests passed**.
+  Это offline tests с fixtures, включая fit/replay/cache failure modes;
+  они отделены от реальных artifact checks.
+- `venv/bin/python scripts/check_types.py`: **45 project files** и
+  **54 notebook modules** (5 sequential exports + 49 cell-boundary modules),
+  **0 errors / 0 warnings**. CLI Pyright не является полным запуском Pylance
+  внутри VS Code; такое совпадение не заявляется.
+- `venv/bin/python -m compileall -q src tests` и `git diff --check`: успешно.
+- Реальные artifacts: IDs/order/true labels, group disjointness, raw/clean text,
+  annotations и counts/denominators согласованы; цепочка protocol → final marker
+  → report provenance проверена. Все четыре PNG успешно декодированы.
+  Final cache содержит 8 files, report — 11 outputs, provenance — 29 input hashes
+  и 10 output hashes без собственного checksum.
+- Report-only CLI выполнен дважды с запрещёнными Pipeline.fit/predict,
+  CV и network calls; оба раза `cache_status=reused`. Все 48 проверенных
+  configs/data (включая raw/interim)/Day02–Day05/annotation files остались
+  неизменными по SHA-256, report outputs — byte-identical.
+- Полный notebook выполнен из корня и `notebooks/` в отдельных чистых kernels;
+  реальные tables/annotations, четыре графика и итоговый runtime checkpoint
+  сохранены. Внешние gates и kernel execution фиксируются отдельно.
+
+Неполная запись нескольких файлов не является общей транзакцией. Partial final
+cache требует явной диагностики; автоматическая переоценка test запрещена.
+Exactly-once prediction при аварии до сохранения cache не гарантируется.
+
+Самопроверка: что можно делать на validation, что означает frozen test result,
+и чем от них отличается inference на новом тексте? Почему Day06 получает
+контракт прежнего решения, а не разрешение улучшить его по test errors?
