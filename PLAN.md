@@ -4,8 +4,8 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-04.
-Day05: D5-01…D5-03 завершены 2026-10-18; D5-04…D5-06 pending; prerequisite D4-08 подтверждён.
+Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-05.
+Day05: D5-01…D5-04 завершены 2026-10-18; D5-05…D5-06 pending; prerequisite D4-08 подтверждён.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -924,9 +924,9 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ## Day05 — error analysis и финальная оценка
 
-Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-03 завершены;
-D5-04…D5-06 pending. Notebook содержит validation reference, confusion analysis
-и ручной разбор детерминированных examples.
+Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-04 завершены;
+D5-05…D5-06 pending. Notebook содержит validation analysis, ручной разбор
+и проверенный cache финальной held-out оценки.
 Один ID — один промпт Codex. Порядок: D4-08 → D5-01 → D5-02 → D5-03 →
 D5-04 → D5-05 → D5-06. До реализации завершить приёмку Day04; наличие
 D4-07 artifacts само по себе не закрывает D4-08.
@@ -1109,7 +1109,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ### D5-04 — freeze и однократная финальная held-out оценка
 
-- [ ] Зафиксировать протокол и оценить единственную выбранную конфигурацию на test.
+- [x] Зафиксировать протокол и оценить единственную выбранную конфигурацию на test.
 - Зависит от D5-03. До доступа к test predictions/metrics записать
   `reports/day05/frozen_protocol.json`: candidate/полные параметры из Day04,
   preprocessing, hashes inputs/manifest/selection, train IDs, seed, versions,
@@ -1137,7 +1137,44 @@ medium тоже разумен. Astra + high имеет смысл при сло
 - Самопроверка: почему tuning после чтения test разрушает независимость оценки?
 - Промпт: «Выполни только D5-04 из PLAN.md по SPEC §10: freeze, train-only
   replay, финальная test оценка и проверяемый cache; без tuning и Day06 bundle».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): отдельный `models/final_evaluation.py` реализует
+  явный CLI `PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.final_evaluation`.
+  Первый запуск exclusive-create сохраняет frozen protocol до fit/test,
+  включает параметры selection и полные get_params TF-IDF/classifier, policy,
+  train/validation/test IDs, seed/classes/metrics, input hashes и runtime versions.
+  Неверные inputs/config/версии Day03/Day04 останавливают запуск до freeze.
+- Первый реальный run — `created`: candidate `linear_svc`, train-only fit на
+  2210 строках, sparse TF-IDF `(2210, 5000)`, exact replay всех 553 validation
+  predictions/IDs/truth/order, без ConvergenceWarning, затем один test predict.
+  Test N=690, accuracy=0.8565217391, macro F1=0.7970501582;
+  counts `[[48, 21, 15], [1, 414, 13], [2, 47, 129]]`.
+  Negative/neutral/positive precision: 0.941176/0.858921/0.821656;
+  recall: 0.571429/0.967290/0.724719; F1: 0.711111/0.909890/0.770149;
+  support: 84/428/178. Ни tuning, ни baseline/Dummy/candidate comparison на test.
+- Сохранены frozen protocol, aligned test predictions/metrics и counts/normalized
+  CSV/PNG с подписями Test. Completion marker `final_evaluation.json` записан
+  последним после проверки roundtrips/bytes; содержит protocol hash
+  `4a9a778085b8f082a20374bf46e1a2053a72aa9a6ee872e3e252dbb8a2570a37`,
+  runtime/replay metadata и hashes шести outputs, без собственного checksum.
+  Это не общая транзакция: crash может оставить partial artifacts; exactly-once
+  prediction при аварии до сохранения cache не гарантируется.
+- Реальные function/CLI повторы — `reused`; `run_final_evaluation` и read-only
+  `load_final_evaluation` проверены с запрещёнными Pipeline.fit/predict.
+  Все восемь final files остались byte-identical. Неполный/повреждённый cache
+  или иной protocol вызывают ошибку с диагностикой, без overwrite/delete/refit.
+- 19 новых offline tests проверяют порядок freeze/fit/replay/test, train-only
+  fit, replay mismatch/ConvergenceWarning до test, повтор без fit/predict,
+  input/config/version mismatch, повреждение marker/protocol/checksums,
+  ID/order/truth/predictions, metrics/matrices и partial cache refusal.
+  Полный pytest: 258 passed, 46 subtests passed; после уточнения full parameter
+  snapshot focused 19 tests повторно прошли. Compileall и git diff --check OK.
+  Type gate: 43 project files и 51 notebook modules (5 sequential exports +
+  46 cell-boundary modules), 0 errors/warnings; CLI Pyright не заменяет Pylance.
+- Notebook выполнен с чистого kernel из корня и `notebooks/` через cache-only API,
+  показывает split/cache status, freeze/replay policy, shapes, per-class metrics
+  и обе test matrices; outputs сохранены, PNG просмотрен. Hashes 26 inputs
+  (включая manual annotations) и восьми final artifacts неизменны. `docs/day05.md`
+  фиксирует результаты/команды/ограничения. D5-05 и Day06 не начаты.
 
 ### D5-05 — offline отчёт и сохранение результатов анализа
 
@@ -1192,10 +1229,10 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ## Шаблон запроса для следующего чата
 
-D5-03 принят; следующий незакрытый пункт — D5-04:
+D5-04 принят; следующий незакрытый пункт — D5-05:
 
-> Выполни только D5-04 из PLAN.md по AGENTS.md и SPEC §10.
-> Зафиксируй frozen protocol и выполни финальную test оценку с проверенным cache/replay.
+> Выполни только D5-05 из PLAN.md по AGENTS.md и SPEC §10.
+> Собери offline report runner из reference/annotations/final cache без нового fit/predict.
 > Выполни общий checkpoint, обнови PLAN с фактическими свидетельствами.
 > Покажи diff stat, предложи commit message, не делай commit.
 

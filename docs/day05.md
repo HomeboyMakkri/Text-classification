@@ -4,7 +4,8 @@
 
 Источник — проверенные Day02–Day04 artifacts и сохранённые validation predictions
 `linear_svc`. Split, labels, preprocessing, candidate и параметры не изменялись.
-Test examples/predictions/metrics не использовались; final evaluation остаётся D5-04.
+На этапе D5-03 test examples/predictions/metrics не использовались; final evaluation
+выполнена отдельно в D5-04 ниже.
 
 `select_validation_examples` берёт до трёх ошибок с минимальными `source_row_id`
 для каждой из шести true→pred пар в порядке negative/neutral/positive.
@@ -73,7 +74,7 @@ review, но не исключает пересечения возможных �
    подтверждение будущего улучшения требует отдельного согласованного протокола.
 
 Ни один эксперимент здесь не запущен. Текущий candidate и параметры заморожены;
-предстоящий held-out test оценивает прежнее решение, не выбирает эти гипотезы.
+held-out test оценивает прежнее решение, не выбирает эти гипотезы.
 
 ## Воспроизведение checkpoint
 
@@ -91,3 +92,69 @@ venv/bin/python scripts/check_types.py
 Самопроверка: почему 12/18 financial context не означает 66,67% всех ошибок?
 Чем гипотеза про исторический loss отличается от наблюдения в тексте?
 Почему разные source IDs не гарантируют независимые наблюдения?
+
+
+## D5-04: frozen final test evaluation
+
+2026-10-18 выполнен первый отдельный final run с `cache_status=created`.
+Candidate `linear_svc` и его параметры взяты из Day04 selection. До fit/test
+сохранён `reports/day05/frozen_protocol.json`: preprocessing, selected parameters
+и полный `get_params` TF-IDF/classifier (dtype записан именем NumPy dtype),
+seed=42, class mapping/order, metric policy, input hashes, train/validation/test
+IDs, фактические runtime versions и fit policy `day03_train_only`.
+
+Pipeline обучен только на **2210 train строках**, sparse TF-IDF shape
+**(2210, 5000)**. Validation не добавлялась в fit. До test predict точное
+совпадение всех **553 validation predictions**, IDs, true labels и порядка
+с reference Day04 подтверждено; `ConvergenceWarning` не было. После replay
+вызван один test predict для **690 строк** прежнего manifest.
+
+| Final test | Результат |
+| --- | --- |
+| Accuracy | 0.856522 |
+| Macro F1 | 0.797050 |
+| Negative precision / recall / F1 / support | 0.941176 / 0.571429 / 0.711111 / 84 |
+| Neutral precision / recall / F1 / support | 0.858921 / 0.967290 / 0.909890 / 428 |
+| Positive precision / recall / F1 / support | 0.821656 / 0.724719 / 0.770149 / 178 |
+
+Это описательные результаты замороженного решения. Macro F1 усредняет F1 трёх
+классов с одинаковым весом; accuracy учитывает частоты классов. Test и validation
+состоят из разных строк и не образуют paired эксперимент. Итог не используется
+для выбора новых параметров, preprocessing, порога или seed. Новые test examples
+не анализировались; baseline/Dummy/candidates на test не запускались.
+
+Сохранены `test_predictions.csv`, `test_metrics.json`,
+`test_confusion_{counts,normalized}.{csv,png}` и frozen protocol.
+`final_evaluation.json` записан последним после roundtrips и проверки записанных
+bytes; он хранит protocol hash, runtime versions, replay metadata и hashes шести
+outputs, без собственного checksum. Это completion marker, не транзакция всех
+файлов. При аварии после test predict, но до завершения cache нельзя обещать
+exactly-once prediction.
+
+Явный запуск и повтор той же команды:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.final_evaluation
+```
+
+Завершённый cache даёт `cache_status=reused`: проверяются текущие inputs,
+protocol/config/versions, output checksums, IDs/order/labels и воспроизведение
+metrics/matrices из cached predictions. **Fit/predict отсутствуют**; реальный
+повтор отдельно проверен с запрещёнными `Pipeline.fit` и `Pipeline.predict`.
+Read-only API `load_final_evaluation(ROOT)` используется notebook и предназначен
+для будущего report-only runner D5-05; при отсутствии cache он не обучает модель.
+
+Неполный/повреждённый cache, другой protocol, версии или входы вызывают ошибку
+с путём и инструкцией диагностики. Автоматическое удаление, перезапись и новая
+test оценка запрещены. При partial artifacts сначала явно разбираются
+`frozen_protocol.json`, marker, входные/output hashes; простой повтор команды
+не начинает обучение. Exclusive creation protocol резервирует первый запуск;
+возобновление незавершённого запуска автоматически не реализовано.
+
+Notebook с чистого kernel читает final cache без новой оценки и показывает
+отдельный `evaluation_split=test`, cache status, train shape, per-class metrics
+и обе test matrices. D5-05 report-only CLI и Day06 model bundle здесь не создаются.
+
+Самопроверка: почему изменение модели после чтения test нельзя подтвердить
+тем же test как независимым? Почему даже совпавшие validation metrics слабее,
+чем точное совпадение всех replay predictions?

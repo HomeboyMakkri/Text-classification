@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -64,7 +65,10 @@ def build_validation_confusion(table: pd.DataFrame) -> ValidationConfusion:
     )
 
 
-def plot_validation_confusion(result: ValidationConfusion, *, normalized: bool = False) -> Figure:
+def plot_validation_confusion(
+    result: ValidationConfusion, *, normalized: bool = False,
+    evaluation_split: Literal["validation", "test"] = "validation",
+) -> Figure:
     """Create an Agg figure with denominators, orientation and absent-class labels."""
     values = result.normalized if normalized else result.counts
     numeric_values = values.to_numpy(dtype=float)
@@ -81,7 +85,7 @@ def plot_validation_confusion(result: ValidationConfusion, *, normalized: bool =
             for label, n in zip(CLASS_ORDER, support, strict=True)
         ],
         xlabel="Predicted label", ylabel="True label",
-        title=f"Validation confusion — {'row-normalized (count / true support)' if normalized else 'counts'}\nN={result.metrics.n_samples}",
+        title=f"{evaluation_split.capitalize()} confusion — {'row-normalized (count / true support)' if normalized else 'counts'}\nN={result.metrics.n_samples}",
     )
     maximum = float(numeric_values.max())
     for i in range(3):
