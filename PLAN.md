@@ -4,8 +4,8 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-01.
-Day05: D5-01…D5-06 pending; prerequisite D4-08 подтверждён.
+Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-02.
+Day05: D5-01 завершён 2026-10-18; D5-02…D5-06 pending; prerequisite D4-08 подтверждён.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -924,8 +924,8 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ## Day05 — error analysis и финальная оценка
 
-Детализация `classification_day05.txt` по SPEC §10. Все пункты pending:
-это планирование, без обучения, открытия test или создания notebook сейчас.
+Детализация `classification_day05.txt` по SPEC §10. D5-01 завершён;
+D5-02…D5-06 pending. Начальный notebook содержит только validation reference.
 Один ID — один промпт Codex. Порядок: D4-08 → D5-01 → D5-02 → D5-03 →
 D5-04 → D5-05 → D5-06. До реализации завершить приёмку Day04; наличие
 D4-07 artifacts само по себе не закрывает D4-08.
@@ -979,7 +979,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ### D5-01 — проверенная таблица validation predictions и notebook setup
 
-- [ ] Загрузить Day04 reference и собрать aligned таблицу для анализа без fit.
+- [x] Загрузить Day04 reference и собрать aligned таблицу для анализа без fit.
 - Зависит от D4-08. Вход: Day02 processed data/provenance, Day03 manifest,
   Day04 selection/config/provenance, validation predictions/metrics.
 - Добавить reusable loader/table builder (например, `models/error_analysis.py`),
@@ -995,7 +995,23 @@ medium тоже разумен. Astra + high имеет смысл при сло
 - Самопроверка: почему одинаковой длины двух таблиц недостаточно для alignment?
 - Промпт: «Выполни только D5-01 из PLAN.md по SPEC §10; обнови notebook и PLAN,
   выполни общий checkpoint. Не обучай модель и не оценивай test».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): `models/error_analysis.py` переиспользует
+  `load_day04_inputs`, проверяет Day04 input/output SHA-256, provenance,
+  effective config, candidate/parameters, CV selection и восстановление metrics.
+  `build_validation_table` выполняет one-to-one joins по source IDs и отклоняет
+  перестановки, неполное покрытие, повторы, неизвестные/несогласованные labels,
+  пропуски, пустые тексты и пересечение groups. `errors` — отдельный фильтр.
+- Реальные данные: `linear_svc` из сохранённого `selection.json`, таблица
+  `(553, 9)`, 84 ошибки (15.189873%). Никакого fit/CV/predict/test evaluation;
+  в offline test вызовы Pipeline.fit/predict запрещены monkeypatch.
+- Checkpoint: 16 новых offline tests; общий pytest — 208 passed,
+  46 subtests passed; compileall и git diff --check успешны. Type gate:
+  37 project files и 44 notebook modules (5 sequential exports + 39 cell-boundary
+  modules), 0 errors/warnings. CLI Pyright не является полным запуском Pylance
+  внутри VS Code.
+- `notebooks/day05_error_analysis.ipynb` выполнен с чистого kernel из корня и
+  `notebooks/`, реальные outputs сохранены. SHA-256 25 входных файлов
+  configs/processed/Day02–Day04 до/после execution совпали. D5-02 не начат.
 
 ### D5-02 — confusion matrix и направления ошибок
 
@@ -1126,10 +1142,10 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ## Шаблон запроса для следующего чата
 
-D4-08 принят; следующий незакрытый пункт — D5-01:
+D5-01 принят; следующий незакрытый пункт — D5-02:
 
-> Выполни только D5-01 из PLAN.md по AGENTS.md и SPEC §10.
-> Создай validation analysis table и начальный day05 notebook без fit/test evaluation.
+> Выполни только D5-02 из PLAN.md по AGENTS.md и SPEC §10.
+> Построй validation confusion matrices и таблицу направлений ошибок без fit/test evaluation.
 > Выполни общий checkpoint, обнови PLAN с фактическими свидетельствами.
 > Покажи diff stat, предложи commit message, не делай commit.
 
