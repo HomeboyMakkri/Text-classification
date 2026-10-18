@@ -4,8 +4,8 @@
 
 Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-10-11.
 Day03: D3-01…D3-07 завершены 2026-10-14.
-Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-02.
-Day05: D5-01 завершён 2026-10-18; D5-02…D5-06 pending; prerequisite D4-08 подтверждён.
+Day04: D4-01…D4-08 завершены 2026-10-18; следующий пункт — D5-03.
+Day05: D5-01…D5-02 завершены 2026-10-18; D5-03…D5-06 pending; prerequisite D4-08 подтверждён.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -924,8 +924,8 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ## Day05 — error analysis и финальная оценка
 
-Детализация `classification_day05.txt` по SPEC §10. D5-01 завершён;
-D5-02…D5-06 pending. Начальный notebook содержит только validation reference.
+Детализация `classification_day05.txt` по SPEC §10. D5-01…D5-02 завершены;
+D5-03…D5-06 pending. Notebook содержит validation reference и confusion analysis.
 Один ID — один промпт Codex. Порядок: D4-08 → D5-01 → D5-02 → D5-03 →
 D5-04 → D5-05 → D5-06. До реализации завершить приёмку Day04; наличие
 D4-07 artifacts само по себе не закрывает D4-08.
@@ -1015,7 +1015,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ### D5-02 — confusion matrix и направления ошибок
 
-- [ ] Построить counts и row-normalized confusion matrix validation.
+- [x] Построить counts и row-normalized confusion matrix validation.
 - Зависит от D5-01. Вход — aligned таблица, выход — две матрицы `(3, 3)`,
   CSV/PNG и таблица шести направленных off-diagonal пар с counts.
 - Строки = true, столбцы = predicted; порядок negative/neutral/positive.
@@ -1030,7 +1030,29 @@ medium тоже разумен. Astra + high имеет смысл при сло
 - Самопроверка: чем true negative → predicted neutral отличается от обратной пары?
 - Промпт: «Выполни только D5-02 из PLAN.md: validation confusion matrix,
   проверки и notebook checkpoint; не переходи к ручному анализу или test».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): `models/confusion.py` строит counts и normalized
+  `(3, 3)` в фиксированном class order, шесть directed pairs с count,
+  true_support и fraction_of_true; per-class metrics через общий
+  `evaluate_predictions`. Для support=0 строка нулевая и помечена absent.
+  Headless Agg PNG подписывают true/predicted axes, support и нормировку.
+- Реальные validation counts: `[[47, 15, 5], [3, 326, 15], [4, 42, 96]]`;
+  N=553, correct=469, errors=84. Positive → neutral: 42/142=29.58%,
+  neutral → positive: 15/344=4.36%. Recall negative/neutral/positive:
+  70.15%/94.77%/67.61%; macro F1=0.805961. Интерпретация использует true
+  support, не сравнивает сырые counts как error rates.
+- Сохранены только Day05 artifacts: `validation_confusion_{counts,normalized}`
+  CSV/PNG и `confusion_pairs.csv` в ignored `reports/day05/`; оба графика,
+  per-class metrics, pairs, интерпретация и самопроверка — в notebook.
+- Checkpoint: 10 новых offline tests (asymmetry/transpose, totals, support,
+  absent true/predicted classes, zero errors, invalid labels, headless export
+  и CSV roundtrip). Общий pytest: 218 passed, 46 subtests passed;
+  compileall и git diff --check успешны. Type gate: 39 project files и
+  46 notebook modules (5 sequential exports + 41 cell-boundary modules),
+  0 errors/warnings; CLI Pyright не заменяет Pylance внутри VS Code.
+- Notebook выполнен с чистого kernel из корня и `notebooks/`, outputs
+  сохранены; 25 входных configs/processed/Day02–Day04 files неизменны по
+  SHA-256. PNG проверен визуально. Fit/predict/CV/test evaluation не запускались;
+  ручной разбор D5-03 не начат.
 
 ### D5-03 — реальные примеры и ручные failure categories
 
@@ -1142,10 +1164,10 @@ medium тоже разумен. Astra + high имеет смысл при сло
 
 ## Шаблон запроса для следующего чата
 
-D5-01 принят; следующий незакрытый пункт — D5-02:
+D5-02 принят; следующий незакрытый пункт — D5-03:
 
-> Выполни только D5-02 из PLAN.md по AGENTS.md и SPEC §10.
-> Построй validation confusion matrices и таблицу направлений ошибок без fit/test evaluation.
+> Выполни только D5-03 из PLAN.md по AGENTS.md и SPEC §10.
+> Выбери реальные validation examples и выполни ручной разбор без fit/test evaluation.
 > Выполни общий checkpoint, обнови PLAN с фактическими свидетельствами.
 > Покажи diff stat, предложи commit message, не делай commit.
 
