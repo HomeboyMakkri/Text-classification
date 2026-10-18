@@ -605,9 +605,8 @@ notebook в чистых kernels из корня и `notebooks/` записыв�
 
 Детализация `classification_day04.txt` по SPEC §2, §6 и §8. Один ID — один
 самостоятельный промпт Codex; выполнять последовательно D4-01 → D4-08.
-Завершены D4-01…D4-05: протокол зафиксирован, reference проверена, общие CV
-folds построены, baseline, unigram и LinearSVC CV измерены. Подбор C пока не
-запускался.
+Завершены D4-01…D4-06: протокол зафиксирован, reference проверена, общие CV
+folds построены, baseline, unigram, LinearSVC и ограниченный C grid измерены.
 Вход — проверенные Day02 artifacts и сохранённая Day03 baseline reference,
 включая неизменный manifest train/validation/test. Выход — сравнение трёх
 направлений улучшения, выбранная конфигурация и воспроизводимый протокол.
@@ -792,7 +791,7 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 
 ### D4-06 — ограниченный подбор regularization C
 
-- [ ] Проверить LogReg C ∈ {0.1, 1.0, 10.0} с baseline TF-IDF.
+- [x] Проверить LogReg C ∈ {0.1, 1.0, 10.0} с baseline TF-IDF.
 - Зависит от D4-05. Использовать GridSearchCV над полным Pipeline, прежние
   folds и scoring macro F1 с фиксированными labels/zero_division;
   error_score='raise', refit=False. Остальные параметры неизменны.
@@ -809,7 +808,16 @@ compileall и `git diff --check`. Реальные данные и clean-kernel 
 - Самопроверка: почему лучший CV score после перебора — не финальная test оценка?
 - Промпт: «Выполни только D4-06 из PLAN.md: ограниченный GridSearchCV для
   LogReg C на прежних folds. Обнови notebook; не расширяй search space».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): добавлен компактный `search_logreg_c` с
+  `GridSearchCV` над полным Pipeline, ровно тремя C, сохранёнными folds,
+  scoring macro F1 с labels `[0, 1, 2]` и `zero_division=0`, дополнительным
+  accuracy scorer, `refit=False` и `error_score="raise"`. ConvergenceWarning
+  повышается до явной ошибки. Средний macro F1 для C=0.1/1.0/10.0:
+  0.381356/0.664277/0.759263 (std 0.023907/0.026227/0.023086); accuracy
+  mean 0.672852/0.792315/0.832588. C=1 scores совпали с D4-03 для обеих
+  метрик; warnings отсутствовали. C=10 — лучший в grid, общий выбор остаётся
+  D4-07. Два pytest теста прошли (фиксированный grid/control и повторяемость),
+  type gate без errors/warnings, notebook выполнен из корня и `notebooks/`.
 
 ### D4-07 — сравнение, фиксация выбора и validation confirmation
 
