@@ -6,7 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Следующий этап — детализация Day06 по roadmap; реализация Day06 не начата.
+Day06: D6-01…D6-08 детализированы по SPEC §11; все pending.
+Следующий исполнимый пункт — D6-01; реализация Day06 не начата.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1292,22 +1293,260 @@ medium тоже разумен. Astra + high имеет смысл при сло
   не транзакция, exactly-once при crash до cache не гарантирован; автоматическая
   переоценка test не допускается. Day05 принят, commit не выполнялся.
 
-## Roadmap day06–day07
+## Day06 — inference pipeline и сохранение модели
+
+Планирование выполнено 2026-10-18 по `classification_day06.txt`, SPEC §11
+и принятому handoff D5-06 / `docs/day05.md`. Изменены только PLAN/SPEC;
+bundle, новый notebook и Python code пока не созданы, fit не запускался.
+Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
+Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
+D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Все пункты ниже ещё не выполнены.
+
+Цель: сохранить замороженный TF-IDF/classifier Pipeline и предсказывать новые
+raw texts с прежней `preprocess_text` (`minimal-v1`), без переобучения при inference.
+В Day05 fitted Pipeline не сохранён: D6-02 выполняет явный train-only fit
+и validation replay; D6-03 сохраняет результат. Load/predict/CSV и дальнейший
+повтор notebook с готовым bundle не делают fit. Не вызывать final evaluation
+ради модели, не менять frozen config и не делать новый test predict/metrics.
+HTTP API, UI, calibration, новые ML experiments и финальный README — вне дня.
+
+### Общий checkpoint каждого пункта
+
+- Reusable логика в `src/finnews_sentiment/`; новые содержательные tests — pytest.
+  Переиспользовать текущие loaders/builders и read-only final-cache validation;
+  не создавать второй несовместимый config или framework.
+- После каждого ID обновлять `notebooks/day06_inference.ipynb` отдельным section:
+  цель → теория → вызов reusable кода → реальные outputs → интерпретация →
+  самопроверка. Создать notebook при D6-01, не при планировании.
+- После Python/code cells выполнить `venv/bin/python scripts/check_types.py`,
+  целевые pytest, `venv/bin/python -m compileall -q src tests`, `git diff --check`.
+  Фиксировать число project/notebook modules и режимы export; CLI Pyright
+  не является полным запуском Pylance внутри VS Code. Полный suite — D6-08.
+- Отдельно проверить реальные локальные artifacts и notebook из корня/`notebooks/`
+  в чистых kernels, сохранить outputs; не прерывать чужой работающий kernel.
+  До D6-03 D6-02 section явно делает train-only fit; при D6-03 заменить этот
+  вызов показом проверенных bundle metadata и вынести build в явную команду.
+- День не меняет configs/data/reports Day02–Day05; проверять hashes.
+  Готовый bundle при повторе использовать без fit. Не закрывать пункт без
+  фактического результата/checkpoint; недоступные проверки назвать прямо.
+  Каждый запрос заканчивается diff stat с untracked files и commit message;
+  commit только по отдельному запросу.
+
+### D6-01 — frozen inputs, типизированный контракт и notebook setup
+
+- [ ] Подготовить проверенный read-only вход для сборки inference artifact.
+- Зависит от D5-06. Вход: Day02 data/provenance, Day03 config/manifest,
+  Day04 selection/config/reference, Day05 frozen protocol/final cache.
+- В `models/inference_artifact.py` зафиксировать небольшие typed структуры
+  reference/bundle metadata и публичные signatures будущих build/save/load.
+  Переиспользовать loaders и `load_final_evaluation`, без вызова
+  `run_final_evaluation`, fit, predict, CV или записи предыдущих artifacts.
+- Проверить hashes, schema, versions, selected candidate, полные effective
+  параметры, `minimal-v1`, mapping/order, seed, `day03_train_only`, IDs/order
+  и split disjointness по SPEC §11. Не зашивать baseline или fallback.
+- Выход: typed reference с train/validation и frozen metadata; notebook setup
+  явно подключает src из корня/`notebooks/`, показывает candidate, источники,
+  shapes/counts и поток raw → preprocessing → TF-IDF → classifier.
+- Проверки: missing/partial/corrupt references, иной config/runtime/policy,
+  переставленные/пропущенные IDs; input immutability. В tests запретить
+  fit/predict/network/final-run. Реальная проверка выполняется offline.
+- Самопроверка: почему saved predictions и config не заменяют fitted estimator?
+- Промпт: «Выполни только D6-01 из PLAN.md по SPEC §11: frozen input loader,
+  typed contracts и notebook setup. Выполни общий checkpoint, обнови PLAN.
+  Не обучай/не сохраняй модель, не вызывай predict/test evaluation. Commit не делай».
+- Свидетельство: pending.
+
+### D6-02 — train-only восстановление Pipeline и validation replay
+
+- [ ] Воспроизвести замороженное решение отдельной явной build-функцией.
+- Зависит от D6-01. Вход: проверенный reference; выход: fitted Pipeline
+  в памяти и typed build result с train/features counts и replay evidence.
+- Использовать прежний builder выбранного candidate; до fit сверить полные
+  параметры с protocol и raw→clean parity на train/validation. Fit только на
+  прежнем clean train в manifest order, включая retained duplicates.
+- Exact validation replay сверяет все source IDs, true labels, порядок и
+  pred IDs с Day04 reference. `ConvergenceWarning`/mismatch — ошибка.
+  Никаких test transform/predict/score и refit на validation/test.
+- Проверки: train-only vocabulary/IDF, порядок/duplicates, правильный builder,
+  неверный clean text/config, replay mismatch и convergence failure.
+  Структура build не передаёт test строки в model calls; fixtures содержат
+  уникальные train/validation/test tokens для проверки boundary.
+- Notebook: явный fit, shapes `(N_train, V)` / `(N_valid,)`, actual replay status;
+  текущие ориентиры 2210 train rows, V=5000, 553 validation rows брать из данных.
+  После D6-03 этот section будет читать metadata готового artifact без fit.
+- Самопроверка: что доказывает validation replay и почему он не доказывает
+  побитовую идентичность утраченных весов Day05?
+- Промпт: «Выполни только D6-02 из PLAN.md по SPEC §11: явный train-only build
+  и exact validation replay. Обнови notebook/PLAN, выполни общий checkpoint.
+  Не сохраняй bundle, не меняй модель и не предсказывай test. Commit не делай».
+- Свидетельство: pending.
+
+### D6-03 — joblib bundle, manifest, load и reuse без fit
+
+- [ ] Сохранить и загрузить целый fitted Pipeline с inference metadata.
+- Зависит от D6-02. Вход: успешный build result; выход:
+  `models/day06/sentiment_bundle.joblib` и соседний `manifest.json` по SPEC §11.
+- В `models/inference_artifact.py` реализовать save/load и явную build-команду;
+  её точный invocation записать в `docs/day06.md`. Bundle включает vectorizer
+  и classifier, schema/config/classes/preprocessing/fit policy, provenance и
+  versions; manifest содержит bundle checksum без self-checksum.
+- Preflight до deserialize: schema/hash/policy/implementation/runtime;
+  после load: fitted state/types/classes/dimensions/effective params/metadata.
+  Roundtrip validation replay обязателен до завершения save. Только trusted
+  local joblib; checksum не является доказательством доверия к pickle.
+- Manifest писать последним. Готовая согласованная пара используется без fit;
+  partial/corrupt/mismatch output блокирует rebuild/overwrite. Для нового build
+  можно явно задать новый каталог. Не обещать атомарность пары файлов.
+- Проверки: unfitted/wrong estimator, schema/hash/version/policy mismatch,
+  classes/dimensions/config, повреждённый bundle, partial output, metadata
+  disagreement; повтор build с готовым bundle не вызывает fit.
+- Notebook: вызвать read-only load, показать metadata/shapes и replay status.
+  Убрать прямой fit из предыдущего D6-02 section; build остаётся отдельной явной
+  командой. Существующий valid bundle не перезаписывается при исполнении cells.
+- Самопроверка: почему сохранение classifier отдельно от vectorizer опасно?
+- Промпт: «Выполни только D6-03 из PLAN.md по SPEC §11: bundle, manifest,
+  проверенный load и reuse без fit. Вынеси build в явную команду, обнови
+  notebook/PLAN/docs и выполни общий checkpoint. Не оценивай test, commit не делай».
+- Свидетельство: pending.
+
+### D6-04 — batch prediction для raw unlabeled texts
+
+- [ ] Реализовать typed `predict_texts` в `models/predict.py`.
+- Зависит от D6-03. Вход: loaded bundle и `Sequence[str]`; выход:
+  `list[SentimentPrediction]` с text/text_clean/pred_label_id/pred_label.
+  Один текст передаётся как `[text]`; ровно N результатов в исходном порядке.
+- Заменить старую заготовку вызовом общей `preprocess_text` и fitted Pipeline;
+  не применять табличные функции, `.astype(str)` или обработку true labels.
+  Старый CSV adapter временно направить на новый API либо оставить явную
+  диагностируемую границу до D6-06; не оставлять второй расходящийся predictor.
+- Валидировать весь batch до predict: reject bare str/bytes, empty batch,
+  None/NaN/non-string, blank и empty-after-clean text с индексом. Duplicates
+  сохранять. Unknown-vocabulary nonempty text допускается без refit.
+- Проверки: N/order/mapping/duplicates, ошибки ввода, negation/numbers/currency/
+  HTML parity; fit/fit_transform/partial_fit запрещены. Snapshot vocabulary,
+  IDF, weights/classes до/после; нет probability/score у LinearSVC API.
+- Notebook: raw→clean→prediction, shapes, один текст и batch, понятный invalid
+  input example. Это демонстрация API, не измерение accuracy.
+- Самопроверка: что произойдёт, если все слова новой фразы отсутствуют в vocabulary?
+- Промпт: «Выполни только D6-04 из PLAN.md по SPEC §11: typed raw-text batch
+  inference и input validation. Обнови notebook/PLAN и выполни общий checkpoint.
+  Используй готовый bundle без fit/test prediction. Commit не делай».
+- Свидетельство: pending.
+
+### D6-05 — сквозная consistency и standalone inference
+
+- [ ] Доказать согласованность preprocessing, serialization и public API.
+- Зависит от D6-04. Использовать готовый bundle и прежний validation reference,
+  без нового fit и без test prediction. Offline fixtures отдельно от real replay.
+- Проверить все train/validation raw→clean значения; все validation predictions
+  из loaded Pipeline и raw-text public API равны reference по IDs/order.
+  Сравнение до/после save опирается на D6-03 roundtrip и проверку состояния.
+- Запустить отдельный Python process: доступны src/runtime, bundle/manifest
+  и новые тексты, недоступны training dataset/configs/reports. Запретить
+  fit/CV/network/final-run и убедиться, что import не выполняет I/O/training.
+- Выход: reusable consistency check и `reports/day06/consistency.json` с
+  hashes/runtime/counts/status каждого фактически выполненного режима.
+  Report не содержит собственного checksum, не является новой ML evaluation.
+- Проверки: raw/clean mismatch, altered reference/artifact, state mutation,
+  standalone без data/reports и повтор с теми же predictions. Не требовать
+  одинаковых joblib bytes после независимого rebuild; не запускать rebuild
+  ради сравнения сохранённого artifact.
+- Notebook: вывод результатов consistency и объяснение serialization parity;
+  real fit/test calls запрещены, bundle и предыдущие inputs неизменны.
+- Самопроверка: почему успешный load в текущем kernel не доказывает standalone работу?
+- Промпт: «Выполни только D6-05 из PLAN.md по SPEC §11: consistency report,
+  real validation parity и standalone process без data/reports/fit. Обнови
+  notebook/PLAN, выполни общий checkpoint. Test не предсказывай, commit не делай».
+- Свидетельство: pending.
+
+### D6-06 — CSV inference CLI и форматы файлов
+
+- [ ] Довести `predict_for_file` и CLI в `models/predict.py` до SPEC §11.
+- Зависит от D6-05. CLI принимает `--model`, `--input`, `--output` и вызывает
+  те же load/predict API. Пути — `Path`, без скрытого поиска training artifacts.
+- Вход UTF-8: обязательна только `text`, дополнительные columns сохраняются.
+  Выход: прежние columns + `text_clean`, `pred_label_id`, `pred_label`, без index;
+  N/order/duplicates/raw text сохранены. Не требовать labels/provider/headline.
+- Ошибки: missing/duplicate columns, empty CSV/table, missing/blank text,
+  collision output columns, input=output или уже существующий output.
+  Не превращать литерал `NA` в пропуск. Весь ввод проверить до готового output;
+  source CSV и bundle не изменять.
+- Проверки: API/CSV equivalence, UTF-8/quotes/newlines/NA/duplicates и failure
+  modes на tmp_path, CLI subprocess без fit/network, CSV roundtrip.
+- Notebook: временный CSV с новыми unlabeled texts, вызов reusable adapter,
+  чтение реального output и сверка с API. `docs/day06.md`: точная CLI команда,
+  таблица input/output columns и примеры ошибок; final README не менять.
+- Самопроверка: почему inference CSV не обязан иметь колонку sentiment?
+- Промпт: «Выполни только D6-06 из PLAN.md по SPEC §11: CSV adapter/CLI
+  поверх готового load/predict API и документация формата. Обнови notebook/PLAN,
+  выполни общий checkpoint без fit/test evaluation. Commit не делай».
+- Свидетельство: pending.
+
+### D6-07 — новые examples и инструкция использования
+
+- [ ] Подготовить небольшую воспроизводимую демонстрацию на новых текстах.
+- Зависит от D6-06. Создать tracked `docs/day06_examples.csv` с вручную
+  составленными финансовыми фразами, которых нет в canonical dataset;
+  не выбирать примеры из train/validation/test. Достаточно 6–8 разных ситуаций.
+- Включить рост, убыток, нейтральное событие, отрицание/сравнение,
+  числа/валюты/HTML и неизвестную лексику. Не добавлять ground-truth labels,
+  не требовать желаемых predictions/покрытия всех predicted классов.
+- Прогнать API/CLI без fit; сохранить фактический `reports/day06/demo_predictions.csv`.
+  Duplicates/invalid inputs показать отдельно как контракт, без quality claims.
+  Вручную составленные smoke examples не заменяют real replay D6-05.
+- Завершить `docs/day06.md`: явная build-команда отдельно от load/predict,
+  зависимости/локальные artifacts, Python пример, CSV пример, preprocessing,
+  ошибки/reuse, trusted joblib/version constraints, ограничения OOV и LinearSVC.
+- Notebook: actual raw/clean/predicted table, интерпретация ограничений;
+  отсутствие labels означает отсутствие accuracy/F1. Не править модель или
+  подбирать фразы ради удачного ответа. Проверить docs commands на реальном bundle.
+- Самопроверка: почему несколько правдоподобных ответов не доказывают качество
+  на новом потоке финансовых новостей?
+- Промпт: «Выполни только D6-07 из PLAN.md по SPEC §11: новые smoke examples,
+  сохранённые predictions и docs/day06.md. Обнови notebook/PLAN, выполни общий
+  checkpoint. Без fit, tuning, test prediction и final README. Commit не делай».
+- Свидетельство: pending.
+
+### D6-08 — итоговая приёмка и handoff Day07
+
+- [ ] Подтвердить все критерии `classification_day06.txt` и SPEC §11.
+- Зависит от D6-07. Полный `venv/bin/python -m pytest tests -v`, type gate,
+  compileall/diff check; отдельно real bundle load/reuse, validation consistency,
+  standalone process, API/CSV demos и clean-kernel notebook из двух cwd.
+- Весь готовый notebook выполняется с запрещёнными fit/CV/download/final-run,
+  без test transform/predict/score. Есть восемь sections, все переменные
+  определены выше использования, реальные outputs и самопроверка сохранены.
+- Проверить hashes Day02–Day05 inputs, frozen final outputs и bundle/manifest
+  до/после; inference не меняет vocabulary/IDF/weights/classes. Не повторять
+  real build лишь ради приёмки: использовать evidence D6-02/D6-03 и valid bundle.
+- В PLAN/docs записать фактические команды, counts, runtime, проверки и
+  ограничения. Не объявлять unrun checks успешными или replay доказательством
+  идентичности утраченных весов Day05; не обещать рост метрик/live quality.
+- Handoff Day07: build/load/CSV команды, artifact paths/versions/hashes,
+  frozen config/fit policy, готовые examples и docs; Day07 завершит README,
+  общую итоговую таблицу/ограничения и воспроизведение всего workflow.
+- Самопроверка: чем artifact build, inference и итоговая ML evaluation
+  отличаются по данным, разрешённым операциям и результату?
+- Промпт: «Выполни только D6-08 из PLAN.md: приёмка Day06 по SPEC §11,
+  полный checkpoint и handoff Day07. Не выполняй новый real fit/test prediction,
+  не начинай Day07. Обнови notebook/PLAN/docs, commit не делай».
+- Свидетельство: pending.
+
+## Roadmap day07
 
 | День | Подзадачи (все pending) | Результат / notebook |
 | --- | --- | --- |
-| 06 | D6-01 artifact bundle; D6-02 load/predict API; D6-03 roundtrip consistency; D6-04 new-text demos | inference without fit, day06_inference.ipynb |
 | 07 | D7-01 end-to-end review; D7-02 runnable README; D7-03 summary/limitations; D7-04 clean-environment acceptance | reproducible mini-product, day07_review.ipynb |
 
 ## Шаблон запроса для следующего чата
 
-Day05 принят; следующий этап — детализация Day06 по roadmap, без реализации:
+Day06 детализирован; следующий исполнимый пункт — D6-01:
 
-> Детализируй Day06 в PLAN.md по SPEC и handoff в docs/day05.md.
-> Раздели artifact bundle, load/predict API, roundtrip consistency и demos
-> на небольшие проверяемые пункты; сохрани frozen config и day03_train_only fit policy.
-> Не обучай модель, не переоценивай test и не начинай реализацию Day06.
-> Покажи diff stat, предложи commit message, не делай commit.
+> Выполни только D6-01 из PLAN.md по SPEC §11 и handoff в docs/day05.md.
+> Подготовь frozen input loader, typed contracts и day06 notebook setup.
+> Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
+> Не обучай/не сохраняй модель, не вызывай predict/test evaluation.
+> Покажи diff stat с untracked files, предложи commit message, не делай commit.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

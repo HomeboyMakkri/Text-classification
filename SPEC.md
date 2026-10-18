@@ -7,8 +7,8 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day03 завершены; **day04** детализирован в §9, реализация идёт по PLAN.
-Transformer fine-tuning, API, UI, deployment,
+Day01–Day05 завершены; **day06** детализирован в §11, реализация ещё не начата.
+Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
 ## 2. Источники требований и решения
@@ -28,6 +28,7 @@ Transformer fine-tuning, API, UI, deployment,
 | README требует +5%, day04 требует попытки | Минимум три обоснованных эксперимента; прирост — исследовательская цель, не гарантированный gate |
 | NLTK читается при import; тикеры заменяются после lower | Это известные дефекты шаблона day02; исправлять в day02, не использовать в day01 |
 | Стартовый train/inference/config | Учебные заготовки, пока не приняты и не проверены как рабочий workflow |
+| Day06 просит сохранить модель и vectorizer | Сохранять один fitted TF-IDF/classifier Pipeline в joblib bundle; preprocessing выполнять общей `preprocess_text`, не старым табличным адаптером |
 
 Улучшение показывается и как абсолютная разница macro F1, и как относительное
 `(candidate - baseline) / baseline * 100%`, если baseline > 0.
@@ -129,7 +130,7 @@ requirements.txt                       # original broad curriculum dependencies
   модели/параметров; анализ test допускается для итогового отчёта без дальнейшей настройки.
 - Day06: один bundle включает preprocessing contract, vectorizer, classifier, class order,
   provenance, versions и config. Inference не делает fit и совпадает с training transform.
-  Вероятности выдаются только если модель поддерживает их; score не называть probability.
+  Точный контракт — §11; текущий API возвращает label ID/name без probability/score.
 - Day07: runnable README, итоговая таблица, demo, ограничения и полный повторный запуск.
 
 Точные API последующих дней уточняются перед реализацией. Тональность предложения
@@ -842,3 +843,186 @@ sampling, annotations, fit boundary/replay/cache и report repeat. Type gate
 Недоступный запуск явно отмечается; пункт не закрывается по одному наличию кода.
 Day06 получает frozen configuration, preprocessing/class contracts и ту же
 fit policy, не меняя модель на основании final test результата.
+
+## 11. Контракт day06 — сохранение модели и inference новых текстов
+
+### Цель, границы и порядок
+
+Реализовать пять задач `classification_day06.txt`: сохранение/загрузка лучшей
+модели и vectorizer, функция для новых текстов, проверка на новых примерах,
+тот же preprocessing и документированный формат входа/выхода.
+Prerequisite — приёмка D5-06 и handoff `docs/day05.md`.
+Порядок D6-01…D6-08 — в PLAN; каждый пункт реализуется отдельным запросом
+с checkpoint в `notebooks/day06_inference.ipynb`. При планировании notebook,
+bundle и Python modules не создаются, обучение не запускается.
+
+Day04/Day05 сохраняют конфигурацию и predictions, но не fitted Pipeline.
+Поэтому подготовка artifact требует одного явного воспроизводящего fit на
+прежнем Day03 train (`day03_train_only`) и validation replay. Это отдельная
+build-операция; `load_bundle`, prediction API, CSV CLI и повтор notebook
+с готовым bundle никогда не вызывают fit, CV, download или final evaluation.
+Не вызывать `run_final_evaluation` ради получения Pipeline: первый запуск
+этой функции оценивает test, а cache reuse не возвращает fitted estimator.
+
+Не менять selection, preprocessing, class mapping, seed, row order, retained
+train duplicates, параметры или fit policy; не добавлять validation/test
+в обучение. Не выполнять новый test transform/predict/score и не пересчитывать
+финальную оценку. Проверка структуры/хешей существующих artifacts не является
+новой test evaluation. Новые примеры служат smoke demo, не подбором модели.
+HTTP service, UI, calibration, новые признаки и финальный README — вне Day06;
+финализация README и всего workflow остаётся Day07.
+
+### Подготовка frozen estimator (D6-01…D6-02)
+
+Использовать существующие Day02–Day04 loaders/builders и read-only проверку
+Day05 final cache. Входы: processed data/provenance, Day03 config/manifest,
+Day04 selection/effective config/reference/provenance, Day05 frozen protocol
+и final marker. Отсутствие, partial cache, mismatch checksum/schema/config/
+versions/IDs/order — явная ошибка с путём; никаких автоматических перезапусков
+предыдущих дней, исправления reference или подмены реальных данных fixtures.
+
+Candidate брать из selection и сверять с frozen protocol; текущий —
+`linear_svc`, но default baseline не является fallback. Сверять полные
+effective параметры TF-IDF/classifier и preprocessing policy с protocol,
+используя уже согласованное JSON-представление dtype/tuples.
+Runtime подготовки должен совпадать с frozen protocol. Общую валидацию
+переиспользовать без побочного refactor и без новой несовместимой схемы.
+
+Build получает только train/validation данные для model calls. Проверить
+`preprocess_text(raw) == text_clean` для этих строк. Fit существующего
+Pipeline `tfidf` → `clf` выполняется на clean train в manifest order;
+vocabulary/IDF fit внутри Pipeline. Затем exact replay всех validation
+predictions относительно Day04: source IDs, true labels, порядок и pred IDs.
+Mismatch или `ConvergenceWarning` прекращают build до публикации artifact.
+Это проверка воспроизведения замороженного алгоритма и fit policy; она
+не доказывает идентичность весов утраченного Day05 fitted объекта.
+
+Текущие проверяемые ориентиры: train 2210 rows / 2206 groups, validation
+553 rows / 552 groups, TF-IDF `(2210, 5000)`, classes `[0, 1, 2]`.
+Размеры выводить из проверенных данных, не использовать как замену alignment.
+Сохранять train IDs или их однозначный checksum, N_train, N_features,
+validation replay status и checksum reference. Day02–Day05 inputs неизменны.
+
+### Bundle, manifest и загрузка (D6-03)
+
+Предлагаемая reusable логика — `models/inference_artifact.py`; базовая
+типизированная структура bundle и результаты подготовки доступны notebook
+без зависимости от narrowing в предыдущей cell. Публичные операции:
+явная подготовка/build, `save_bundle` и `load_bundle(Path)`; окончательные
+signatures зафиксировать в D6-01, не создавать framework/registry.
+
+Один `models/day06/sentiment_bundle.joblib` содержит schema version
+`day06-inference-v1`, fitted `Pipeline` целиком (vectorizer вместе с classifier),
+preprocessing policy `minimal-v1`, class mapping/order, candidate/full config,
+fit policy, seed, train/replay metadata, input hashes и runtime versions.
+Preprocessing реализуется импортируемой `preprocess_text`; код функции
+не сериализуется как notebook lambda или `__main__` object. Bundle фиксирует
+SHA-256 `features/preprocess.py`; loader сверяет policy и implementation hash.
+Bundle требует совместимый `src/` и runtime, но для обычного load/predict
+не требует dataset, configs или reports предыдущих дней.
+
+Рядом `models/day06/manifest.json`: schema, SHA-256 bundle и readable копия
+metadata для preflight. До `joblib.load` проверить schema, bundle hash,
+preprocessing contract и точное совпадение inference runtime: Python, NumPy,
+SciPy, scikit-learn, joblib, threadpoolctl. Остальные версии frozen run
+сохранить как provenance; inference не требует matplotlib ради загрузки.
+После deserialize проверить metadata agreement, fitted state, steps/types,
+classes `[0,1,2]`, dimensions vocabulary/IDF/classifier и effective config.
+Ошибки информативны; не дообучать и не выбирать другую модель при отказе.
+
+Joblib загружает только доверенные локальные artifacts этого проекта:
+checksum обнаруживает порчу, но не удостоверяет автора pickle. Это ограничение
+описать в developer docs; отдельный approval flow для каждого load не нужен.
+
+Save проверяет roundtrip и validation replay загруженного объекта во временном
+каталоге до публикации; итоговый manifest записывается последним. Пара файлов не является общей
+транзакцией: partial output блокирует автоматический rebuild/overwrite.
+Готовый artifact повторно используется после проверки frozen inputs и metadata
+без fit. Несовместимый artifact требует явной диагностики, не удаления молча.
+Для нового build разрешён явно заданный новый output directory.
+Не требовать одинаковых joblib bytes после независимых builds; проверять
+hash сохранённого файла и эквивалентность его состояния/предсказаний.
+
+### Вход и выход prediction API (D6-04)
+
+`predict_texts(bundle, texts: Sequence[str]) -> list[SentimentPrediction]`
+в `models/predict.py` принимает непустую последовательность raw English texts.
+Одна строка целиком не является batch: для одного текста использовать `[text]`.
+`str`/`bytes` вместо batch, нестроковый элемент (включая None/NaN), пустая
+последовательность и пустой после `preprocess_text` элемент — явные ошибки
+с индексом элемента. Сначала валидировать весь batch, затем предсказывать:
+никакого `astype(str)`, скрытого удаления строк или частичного результата.
+
+Каждый typed result содержит `text`, `text_clean`, `pred_label_id: int`,
+`pred_label: str`. Ровно N результатов в исходном порядке, duplicates сохранены;
+`0=negative`, `1=neutral`, `2=positive`. True labels для inference не нужны.
+Raw `(N,)` → общая `preprocess_text` → clean `(N,)` → сохранённый TF-IDF
+`(N, V)` sparse → classifier predictions `(N,)` → typed records.
+Не вызывать `clean_news_data`, `preprocess_news` или `add_basic_features`:
+это табличные training/inspection контракты, а не обработка unlabeled batch.
+
+Не выполнять fit/fit_transform/partial_fit; vocabulary, IDF, classifier weights
+и class order неизменны после predict. Допустимый непустой текст без известных
+features даёт нулевой TF-IDF row и штатный class prediction; это ограничение
+bag-of-words, не повод fit нового vocabulary. Не обещать abstention/confidence.
+Текущий LinearSVC не даёт `predict_proba`; scores, вероятности и calibration
+не входят в выход API. Другой classifier ради probabilities не обучать.
+
+### Roundtrip, CSV adapter и новые примеры (D6-05…D6-07)
+
+Roundtrip отдельно подтверждает: exact raw→clean parity со всеми train/validation
+строками; validation pred IDs до save, после load и через public raw-text API
+совпадают с reference по всем IDs/порядку. Дополнительно сравнить vocabulary,
+IDF, classes и classifier weights до/после serialization и нескольких predict.
+Новый процесс читает только bundle/manifest, совместимый src/runtime и новые
+тексты: без чтения training artifacts, fit, network или test predictions.
+Offline fixtures проверяют те же failure modes; real replay фиксировать отдельно.
+
+Сохранить привычный CSV entrypoint в `models/predict.py`:
+`PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.predict
+--model models/day06/sentiment_bundle.joblib --input <input.csv> --output <output.csv>`.
+`--model` требует соседний manifest; CLI вызывает тот же `load_bundle`/`predict_texts`.
+Вход UTF-8 CSV с обязательной `text`, без обязательных sentiment/label/provider.
+Пустой файл/table, missing/blank/non-string text, дублированные column names
+или уже существующие output columns — ошибки; текстовые значения вроде `NA`
+не превращать незаметно в NaN. Дополнительные columns и raw text сохраняются.
+Выход: прежние columns плюс `text_clean`, `pred_label_id`, `pred_label`, без pandas
+index, столько же строк и тот же порядок. Не требовать уникального text/ID.
+Не перезаписывать input или существующий output; входные ошибки не создают
+готовый output. Пути `Path`, directories относительно выбранного project root
+или явно переданные caller; личных абсолютных путей в коде нет.
+
+В tracked `docs/day06_examples.csv` подготовить небольшой набор новых вручную
+составленных английских финансовых фраз, не скопированных из dataset.
+Показать growth/loss/neutral event, отрицание/сравнение, числа/валюты/HTML,
+неизвестную лексику; не требовать трёх разных predicted классов.
+Ручные examples — unlabeled smoke inputs, не synthetic замена real-data replay
+и не ground truth для accuracy/F1. Показывать фактический output без правки
+примеров/модели ради красивого результата. Дубликаты/невалидный ввод отдельно
+демонстрируют контракт API, а не качество модели.
+
+### Артефакты и приёмка (D6-08)
+
+| Путь | Назначение |
+| --- | --- |
+| `models/day06/sentiment_bundle.joblib`, `manifest.json` | Локальный ignored artifact для load/predict |
+| `reports/day06/consistency.json` | Input/bundle hashes, runtime, raw-clean/validation/state/standalone checks |
+| `reports/day06/demo_predictions.csv` | Фактические результаты новых examples |
+| `docs/day06_examples.csv`, `docs/day06.md` | Tracked demo inputs, контракты, build/load/CSV команды и ограничения |
+| `notebooks/day06_inference.ipynb` | Восемь sections, сохранённые outputs и самопроверка |
+
+Generated model/report outputs остаются ignored по существующей policy;
+ручные docs/examples и reusable code отслеживаются Git. Consistency report
+не содержит собственного checksum и не выдаёт smoke checks за ML quality.
+
+Приёмка: полный offline pytest, type gate (project + sequential notebook
+exports + cell-boundary modules), compileall/diff check; отдельно реальный
+train-only build/replay/roundtrip, standalone process, CSV API equivalence и
+notebook из корня/`notebooks/` в чистых kernels. После появления bundle notebook
+использует reuse: build вынесен в явную команду, дальнейшие sections не требуют
+повторного fit. До D6-03 временный D6-02 checkpoint может явно воспроизводить
+train-only fit; после D6-03 этот section показывает проверенные bundle metadata.
+Готовый notebook проверять с запрещёнными fit/CV/download/final evaluation;
+Day02–Day05 files и bundle/manifest неизменны по SHA-256.
+Не обещать переносимость pickle между версиями, идентичные веса утраченной
+Day05 модели или качество на live news. Непроведённые checks указывать явно.
