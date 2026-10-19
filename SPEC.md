@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-05 выполнены.
+Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-06 выполнены.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -1013,10 +1013,9 @@ features даёт нулевой TF-IDF row и штатный class prediction; 
 bag-of-words, не повод fit нового vocabulary. Не обещать abstention/confidence.
 Текущий LinearSVC не даёт `predict_proba`; scores, вероятности и calibration
 не входят в выход API. Другой classifier ради probabilities не обучать.
-До D6-06 legacy `predict_for_file`/CSV CLI возвращают явную диагностику
-о pending CSV adapter, не читают/не записывают files и не используют прежний
-непроверенный loader/tabular preprocessing. Python API работает через
-`load_bundle` и `predict_texts`; команды и пример — `docs/day06.md`.
+D6-06 `predict_for_file`/CSV CLI используют тот же `load_bundle` и
+`predict_texts`, без прежнего unchecked loader/tabular preprocessing.
+Python API и файловый контракт описаны в `docs/day06.md`.
 
 ### Roundtrip, CSV adapter и новые примеры (D6-05…D6-07)
 
@@ -1063,6 +1062,18 @@ index, столько же строк и тот же порядок. Не тре
 Не перезаписывать input или существующий output; входные ошибки не создают
 готовый output. Пути `Path`, directories относительно выбранного project root
 или явно переданные caller; личных абсолютных путей в коде нет.
+`predict_for_file(model_path: Path, input_path: Path, output_path: Path) -> None`
+читает CSV стандартным strict csv.reader как строки: без type/NA inference,
+с проверкой уникального непустого header и exact field count каждой строки.
+Header-only/blank physical rows и malformed CSV не игнорируются молча.
+Output сохраняет parsed field values, не исходное byte formatting: UTF-8,
+CRLF row terminator и корректное quoting в том числе для lone CR внутри поля.
+Полный output сериализуется до публикации; input bytes сверяются после predict.
+Публикация через temporary file и exclusive hard link в том же каталоге
+не заменяет чужой output даже при гонке; temporary file удаляется при ошибке.
+Existing output (включая symlink) и input/output aliases/hardlinks запрещены.
+CLI использует paths относительно cwd, сообщает ошибки через argparse (exit 2,
+без traceback), не запускает build/download и не создаёт output на input error.
 
 В tracked `docs/day06_examples.csv` подготовить небольшой набор новых вручную
 составленных английских финансовых фраз, не скопированных из dataset.

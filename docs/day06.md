@@ -1,8 +1,7 @@
 # Day06 — сохранение модели и проверенная загрузка
 
-D6-01…D6-05: frozen input loader, explicit train-only build, joblib bundle/
-manifest, typed raw-text API и consistency/standalone verification.
-CSV inference остаётся D6-06.
+D6-01…D6-06: frozen input loader, explicit train-only build, joblib bundle/
+manifest, typed raw-text API, consistency/standalone verification и CSV CLI.
 
 ## Подготовка artifact
 
@@ -109,11 +108,51 @@ Vocabulary/IDF/weights/classes остаются прежними. Непусто
 Это не понимание неизвестной лексики и не confidence/abstention mechanism.
 Scores/probabilities в records отсутствуют, LinearSVC не даёт predict_proba.
 
-Legacy CSV adapter временно остановлен: `predict_for_file` сообщает
-NotImplementedError с D6-06; CLI даёт понятную argparse error (exit 2), не
-читает/не пишет files и не использует старый unchecked joblib loader.
-Для текущего пункта использовать Python batch API; полный CSV contract
-и реализация остаются D6-06.
+## CSV inference (D6-06)
+
+Из корня проекта, с готовым trusted local artifact, существующим input и
+новым output path:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.predict \
+  --model models/day06/sentiment_bundle.joblib \
+  --input path/to/new_news.csv --output path/to/predictions.csv
+```
+
+Пути относительно cwd; можно передать абсолютные. `--model` требует соседний
+manifest.json, не запускает build/download и не читает training references.
+Python adapter: `predict_for_file(model_path: Path, input_path: Path,
+output_path: Path) -> None`, импорт из `finnews_sentiment.models.predict`.
+
+| Column | Input | Output |
+| --- | --- | --- |
+| `text` | Обязательный непустой raw text | Сохранён без очистки |
+| Любые дополнительные columns | Необязательные строки | Сохранены в прежнем порядке |
+| `text_clean` | Зарезервирована, вход с ней запрещён | Тот же minimal-v1 preprocessing |
+| `pred_label_id` | Зарезервирована | Integer literal 0/1/2 |
+| `pred_label` | Зарезервирована | negative/neutral/positive |
+
+Sentiment/true label/provider/headline не требуются. CSV UTF-8 с comma
+delimiter и обычным quote escaping; все fields читаются как строки.
+Literal `NA`/`nan`, leading zeros, empty extra fields, currency/quotes/newlines
+сохраняются; numeric-looking text тоже остаётся текстом. Duplicates text/IDs
+не удаляются и не требуют уникальности. Header должен быть непустым/unique;
+число fields в каждой строке должно совпадать с числом columns.
+
+Output содержит header + все N строк в прежнем порядке, без pandas index.
+Это сохранение parsed field values, не original byte formatting: output
+UTF-8 с CRLF и корректным quoting (включая lone CR внутри field).
+Весь batch проверяется до predict, затем целиком сериализуется. Input bytes
+повторно сверяются перед публикацией; input/model/manifest не изменяются.
+Output directory создаётся после успешной проверки/inference. Existing output
+никогда не перезаписывается, в том числе при гонке; сбой публикации не
+оставляет частичный CSV или временные files.
+
+Примеры ошибок: `text,text` → duplicate header; input `text_clean` → collision;
+последняя строка `<b></b>` → `texts[index] is empty after preprocessing`, весь
+batch отвергается; input=output/hardlink → разные files обязательны;
+existing output → FileExistsError. CLI печатает понятную error (exit 2) без
+traceback и не создаёт output на invalid input/model/path.
 
 ## Consistency и standalone check (D6-05)
 
@@ -153,6 +192,8 @@ temporary paths и self-checksum в JSON отсутствуют. Это подт
 kernel. D6-01 читает frozen references, D6-02 показывает сохранённую build
 metadata, D6-03 — verified artifact load, D6-04 — new-text API calls,
 D6-05 — full consistency и guarded standalone process.
+В D6-06 temporary CSV показывает adapter/API equivalence и failure modes;
+temporary inputs/outputs удаляются после показа таблицы.
 Готовый notebook не обучает модель и не пишет bundle/manifest. Predict
 используется в D6-04 на новых inputs и в D6-05 для validation parity/new-text
 standalone comparison. При отсутствии artifact
@@ -202,10 +243,21 @@ byte-for-byte. Все десять notebook code cells выполнены из �
 kernels с guards. Все 50 прежних input/final/artifact files неизменны;
 compileall/diff check успешны. Новая ML quality measurement не заявляется.
 
+Checkpoint D6-06 (2026-10-19): 31 новый CSV test; вместе с prediction и
+consistency regression — 83 passed. Type gate: 53 project files и 67 notebook
+modules (6 sequential + 61 cell-boundary), 0 errors/warnings. CLI Pyright не
+является полным запуском Pylance внутри VS Code; full pytest не запускался.
+Real temporary input `(3,3)` дал output `(3,6)`; API/adapter/CLI predictions
+совпали, adapter/CLI CSV bytes одинаковы. Separate CLI process и все 12 notebook
+code cells (два cwd/clean kernels) проверены с training/network/dump guards.
+50 прежних input/final/artifact files и fitted state неизменны; test prediction
+не выполнялся. Consistency report regenerated для текущих source hashes.
+Compileall/diff check успешны. Persistent demos остаются D6-07.
+
 Проверки fixtures отдельно от реального build/roundtrip и clean-kernel runs:
 
 ```bash
-venv/bin/python -m pytest tests/test_day06_consistency.py tests/test_day06_predict.py -v
+venv/bin/python -m pytest tests/test_day06_csv.py tests/test_day06_predict.py tests/test_day06_consistency.py -v
 venv/bin/python scripts/check_types.py
 venv/bin/python -m compileall -q src tests
 git diff --check

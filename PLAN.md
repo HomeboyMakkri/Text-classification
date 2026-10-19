@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04/D6-05 выполнены 2026-10-19.
-D6-06…D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-06.
+Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-06 выполнены 2026-10-19.
+D6-07/D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-07.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1302,6 +1302,7 @@ D6-02 — явный train-only build и fresh validation replay; D6-03 — loca
 joblib/manifest, checked load/reuse и notebook без fit.
 D6-04 добавил typed raw-text batch API без fit; CSV adapter остаётся D6-06.
 D6-05 проверил full validation parity, standalone process и consistency report.
+D6-06 добавил CSV adapter/CLI поверх того же typed raw-text API.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
 D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
@@ -1667,7 +1668,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-06 — CSV inference CLI и форматы файлов
 
-- [ ] Довести `predict_for_file` и CLI в `models/predict.py` до SPEC §11.
+- [x] Довести `predict_for_file` и CLI в `models/predict.py` до SPEC §11.
 - Зависит от D6-05. CLI принимает `--model`, `--input`, `--output` и вызывает
   те же load/predict API. Пути — `Path`, без скрытого поиска training artifacts.
 - Вход UTF-8: обязательна только `text`, дополнительные columns сохраняются.
@@ -1686,7 +1687,44 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-06 из PLAN.md по SPEC §11: CSV adapter/CLI
   поверх готового load/predict API и документация формата. Обнови notebook/PLAN,
   выполни общий checkpoint без fit/test evaluation. Commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-19): `predict_for_file(Path, Path, Path)` и реальный
+  CLI `models.predict --model --input --output` заменили D6-04 pending boundary.
+  Adapter вызывает только verified load_bundle + predict_texts, не использует
+  pandas type/NA inference или старый tabular preprocessing/unchecked loader.
+- UTF-8 CSV читается strict csv.reader; header непустой/unique, обязательна
+  text, output columns запрещены во входе, exact field count проверяется для
+  каждой строки. Empty/header-only/blank/malformed input не скрывается.
+  N/order/duplicates/raw text/additional fields, literal NA/nan, ведущие нули,
+  quotes/currency/embedded CR/LF сохраняются. Output: прежние columns плюс
+  text_clean/pred_label_id/pred_label, без pandas index, UTF-8/CRLF quoting.
+- Same input/output, aliases/hardlinks и existing output (включая dangling
+  symlink) отвергаются. Input bytes проверяются после inference; output
+  полностью подготовлен перед публикацией. Temporary file + exclusive
+  same-directory hard link предотвращают overwrite/race и partial CSV;
+  temporary file удаляется при ошибке. CLI errors: argparse exit 2 без traceback.
+- Новый `tests/test_day06_csv.py`: 31 passed. API/CSV equivalence, UTF-8/quotes/
+  CR/LF/NA/leading zeros/duplicates roundtrip, schemas/field counts/encoding,
+  invalid late text до predict, reserved columns, same/existing/linked output,
+  publication race/failure, input mutation и guarded CLI subprocess покрыты.
+  Два старых pytest cases D6-04 обновлены с pending boundary на missing-input
+  refusal до model load; остальной batch API regression сохранён.
+- Целевые CSV/predict/consistency tests — 83 passed. Full pytest suite на этом
+  пункте не запускался. Type gate: 53 project files и 67 notebook modules
+  (6 sequential + 61 cell-boundary), 0 errors/warnings. CLI Pyright не является
+  полным запуском Pylance внутри VS Code. Compileall/diff check успешны.
+- Real готовый linear_svc: temporary input `(3,3)` → output `(3,6)`, все
+  original fields/order/duplicates и parsed text сохранились. Adapter и CLI
+  дали одинаковые CSV bytes и predictions, совпавшие с public API; CLI запущен
+  в отдельном процессе с запрещёнными fit/network/reference reads/dump.
+  Source CSV, fitted state и все 50 прежних input/final/artifact files неизменны.
+- Notebook: отдельный D6-06 section с temporary new-text CSV, actual output
+  table/API equivalence и демонстрацией invalid input/existing output.
+  Все 12 code cells выполнены из корня и notebooks/ в чистых kernels с
+  training/serialization/CV/final-run/network guards, разрешены только
+  validation/new-text predicts. Consistency report D6-05 обновлён под текущие
+  source hashes; model pair/frozen results не менялись. Outputs сохранены.
+  Docs содержат точную CLI команду, I/O table/error examples. Постоянные demos,
+  final README и D6-07/D6-08 не начаты; commit не выполнялся.
 
 ### D6-07 — новые examples и инструкция использования
 
@@ -1746,12 +1784,12 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01…D6-05 завершены; следующий исполнимый пункт — D6-06:
+Day06: D6-01…D6-06 завершены; следующий исполнимый пункт — D6-07:
 
-> Выполни только D6-06 из PLAN.md по SPEC §11: CSV adapter/CLI
-> поверх готового load_bundle/predict_texts API и документация формата.
+> Выполни только D6-07 из PLAN.md по SPEC §11: новые smoke examples,
+> сохранённые predictions и инструкция docs/day06.md.
 > Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
-> Не выполняй fit и test transform/predict/score; не начинай D6-07.
+> Не выполняй fit, tuning или test transform/predict/score; final README не меняй.
 > Покажи diff stat с untracked files, предложи commit message, не делай commit.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня

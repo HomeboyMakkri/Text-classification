@@ -139,17 +139,17 @@ def test_mutated_class_order_is_rejected_before_predict(bundle: artifact.Inferen
         predict.predict_texts(bundle, ["New text"])
 
 
-def test_csv_boundary_does_not_read_or_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Path, "read_bytes", _forbid)
-    with pytest.raises(NotImplementedError, match="D6-06"):
+def test_missing_csv_stops_before_model_read_or_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(predict, "load_bundle", _forbid)
+    with pytest.raises(FileNotFoundError):
         predict.predict_for_file(tmp_path / "model", tmp_path / "input.csv", tmp_path / "output.csv")
     assert not list(tmp_path.iterdir())
 
 
-def test_csv_cli_reports_pending_stage(tmp_path: Path) -> None:
+def test_csv_cli_reports_missing_input(tmp_path: Path) -> None:
     command = [str(ROOT / "venv/bin/python"), "-m", "finnews_sentiment.models.predict", "--model", "missing.joblib",
                "--input", "missing.csv", "--output", "output.csv"]
     result = subprocess.run(command, cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
                             capture_output=True, text=True)
-    assert result.returncode == 2 and "D6-06" in result.stderr
+    assert result.returncode == 2 and "missing.csv" in result.stderr
     assert "Traceback" not in result.stderr and not (tmp_path / "output.csv").exists()
