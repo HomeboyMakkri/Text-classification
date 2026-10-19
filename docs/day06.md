@@ -1,8 +1,8 @@
 # Day06 — сохранение модели и проверенная загрузка
 
-D6-01…D6-07: frozen input loader, explicit train-only build, joblib bundle/
+D6-01…D6-08 завершены: frozen input loader, explicit train-only build, joblib bundle/
 manifest, typed raw-text API, consistency/standalone verification, CSV CLI
-и сохранённые smoke examples. Итоговая приёмка остаётся D6-08.
+и сохранённые smoke examples. Итоговая приёмка подтверждена 2026-10-19.
 
 ## Подготовка artifact
 
@@ -325,10 +325,90 @@ dump; Python snippets и demo CLI commands исполнены на реальн�
 Все 49 frozen files из snapshot и fitted state неизменны; compileall/diff check
 успешны. Новых quality measurements, tuning или test prediction не было.
 
+## Итоговая приёмка D6-08 и handoff Day07
+
+2026-10-19: Day06 принят по `classification_day06.txt` и SPEC §11.
+
+| Критерий | Проверенное свидетельство |
+| --- | --- |
+| Модель и vectorizer сохранены/загружаются | Fitted Pipeline tfidf → clf, manifest/hash/runtime/state validation; два prepare/load повтора без fit/transform/predict/score/dump |
+| Рабочий inference на новых текстах | Typed API + CSV CLI; 8 сохранённых smoke inputs/outputs, API parity и byte-identical repeat |
+| Единый preprocessing | minimal-v1; 2210 train + 553 validation raw/clean pairs совпали |
+| Согласованность предсказаний | Все 553 validation predictions совпали с reference; guarded standalone process passed |
+| Понятный формат использования | Build/load/Python/CSV команды, I/O/errors/reuse и ограничения выше |
+
+Полный `venv/bin/python -m pytest tests -v`: **442 passed, 46 subtests passed**
+за 65.97 s. Это offline tests с fixtures; обучение на fixtures не является
+новым real-data build. Type gate: **53 project files**, **71 notebook modules**
+(6 sequential exports + 65 cell-boundary modules), 0 errors/warnings.
+`compileall` и `git diff --check` успешны. CLI Pyright не является полным
+запуском Pylance внутри VS Code.
+
+Отдельно все **16 code cells / 8 sections** notebook выполнены из корня и
+`notebooks/` в чистых kernels. В real checks training, serialization, CV,
+network и final evaluation запрещены; parent TF-IDF transform/predict допускают
+только validation/new-text inputs, fitted state проверяется до/после predict.
+CLI child дополнительно запрещает чтение training references; D6-05 child
+проверяет standalone load/predict без dataset/configs/reports. Сохранённые
+outputs показывают фактические результаты. D6-08 section сверяет manifest,
+input/source/state checksums и показывает handoff paths/runtime.
+
+Нового real fit/test transform/predict/score не было. Train-only build и
+serialization roundtrip evidence остаются D6-02/D6-03: train 2210 rows /
+2206 groups, 5000 features, fresh validation replay до save/после staging load.
+Приёмка использует существующую пару. Все **50** защищённых files (configs,
+data, Day02–Day05 reports, Day05 failure CSV, bundle/manifest) и отдельно
+**3** demo/report files неизменны по SHA-256. Replay не доказывает идентичность
+утраченных весов Day05 и не является новой независимой оценкой качества.
+
+### Что передаётся Day07
+
+Команды build/reuse, load/API и CSV приведены выше. Для ordinary inference
+достаточны совместимый `src/`, pinned runtime, trusted local bundle/manifest
+и новые inputs; полный build/consistency workflow дополнительно требует
+frozen Day02–Day05 inputs. Generated model/report files остаются ignored.
+Текущие локальные SHA-256 (не универсальные hashes для независимых builds):
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `models/day06/sentiment_bundle.joblib` | `72d5f018ccd5babf9debb597e799ab02a76f8dc551babd216857f9d10cef1300` |
+| `models/day06/manifest.json` | `7b155e9fada9f7d4404801e316d52dc0b0242f52c5de1700aa7a1b62392d1080` |
+| `reports/day06/consistency.json` | `c4822ea3da21b3b78f0f43f7c59e71094e09517a84ae16a4f6f2dc6664233b03` |
+| `docs/day06_examples.csv` | `d99af46c74f82bf0fd999a9ea84e4de66e3ed4b7ddb9dbf93f3f6a7a8a9c363c` |
+| `reports/day06/demo_predictions.csv` | `2d689d528e0c4520e5b9e0616cf7206808f959409e83b66ea89d106d5856b6db` |
+
+Fitted state SHA-256:
+`7623ab0d4d555aed3c73944f59f85acb23e141ada2794fa826c9d7231383b7f7`.
+Frozen choice: `linear_svc`, fit policy `day03_train_only`, seed 42,
+`0=negative, 1=neutral, 2=positive`. TF-IDF word ngrams `[1,2]`,
+`max_features=5000`, `lowercase=False`, без stopwords; LinearSVC `C=1.0`,
+`max_iter=5000`. Полные effective parameters, train IDs, preprocessing hash
+и source/config/data provenance — в manifest metadata и consistency report;
+`configs/train_baseline.json` и `configs/experiments_day04.json` неизменны.
+
+| Runtime | Frozen version |
+| --- | --- |
+| Python | 3.14.6 |
+| NumPy | 2.5.3 |
+| SciPy | 1.18.1 |
+| scikit-learn | 1.9.1 |
+| joblib | 1.6.0 |
+| threadpoolctl | 3.7.0 |
+| pandas (workflow/provenance) | 3.0.6 |
+| matplotlib (workflow/provenance) | 3.11.2 |
+
+Joblib — только trusted local; checksum не удостоверяет автора. Совместимость
+между версиями и качество на live news не обещаются. LinearSVC не даёт
+probabilities; OOV/отрицание/сравнение остаются ограничениями demos.
+
+Day07 pending: end-to-end review, итоговый README, общая таблица результатов
+и ограничений, воспроизведение workflow. Его roadmap нужно детализировать
+перед реализацией; финальный README и Day07 notebook в D6-08 не менялись.
+
 Проверки fixtures отдельно от реального build/roundtrip и clean-kernel runs:
 
 ```bash
-venv/bin/python -m pytest tests/test_day06_csv.py tests/test_day06_predict.py tests/test_day06_consistency.py -v
+venv/bin/python -m pytest tests -v
 venv/bin/python scripts/check_types.py
 venv/bin/python -m compileall -q src tests
 git diff --check

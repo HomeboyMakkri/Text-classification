@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-07 выполнены 2026-10-19.
-D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-08.
+Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
+Day06 принят по SPEC §11. Следующий шаг — детализировать Day07 roadmap.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1304,6 +1304,7 @@ D6-04 добавил typed raw-text batch API без fit; CSV adapter остаё
 D6-05 проверил full validation parity, standalone process и consistency report.
 D6-06 добавил CSV adapter/CLI поверх того же typed raw-text API.
 D6-07 добавил восемь новых smoke inputs, сохранённые predictions и инструкцию.
+D6-08 подтвердил итоговую приёмку и подготовил handoff Day07.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
 D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
@@ -1786,7 +1787,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-08 — итоговая приёмка и handoff Day07
 
-- [ ] Подтвердить все критерии `classification_day06.txt` и SPEC §11.
+- [x] Подтвердить все критерии `classification_day06.txt` и SPEC §11.
 - Зависит от D6-07. Полный `venv/bin/python -m pytest tests -v`, type gate,
   compileall/diff check; отдельно real bundle load/reuse, validation consistency,
   standalone process, API/CSV demos и clean-kernel notebook из двух cwd.
@@ -1807,7 +1808,39 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-08 из PLAN.md: приёмка Day06 по SPEC §11,
   полный checkpoint и handoff Day07. Не выполняй новый real fit/test prediction,
   не начинай Day07. Обнови notebook/PLAN/docs, commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-19): Day06 принят по всем критериям задания/SPEC:
+  fitted vectorizer/classifier в bundle + checked load, typed batch API,
+  новые unlabeled examples, общий minimal-v1 и documented Python/CSV I/O.
+- Полный `venv/bin/python -m pytest tests -v`: 442 passed, 46 subtests passed
+  за 65.97 s. Это весь offline suite, включая fixture-based training;
+  новый real train-only build для приёмки не выполнялся. Type gate:
+  53 project files и 71 notebook modules (6 sequential + 65 cell-boundary),
+  0 errors/warnings. CLI Pyright не является полным VS Code Pylance.
+  Compileall/diff check успешны. Новых regression tests не требовалось:
+  implementation не менялась, проверены существующие contracts/real artifacts.
+- Два prepare/load повтора на реальной artifact pair прошли с запрещёнными
+  fit/transform/predict/score/dump/CV/network/final-run. Manifest/state/runtime
+  checks согласованы; используется D6-02/D6-03 build/serialization evidence,
+  новый real fit и test transform/predict/score не выполнялись.
+- Notebook содержит восемь sections / 16 code cells; выполнен из корня и
+  notebooks/ в чистых kernels с training/dump/CV/final-run/network guards.
+  Parent TF-IDF transform/predict допускают только validation/new-text inputs,
+  fitted state проверен до/после predict. CLI child запрещает fit/dump/network/
+  training-reference reads; standalone child проверяет независимость от данных.
+  Все 2210 train + 553 validation raw/clean pairs и все 553 aligned validation
+  predictions совпали с reference, parent/child state/predictions согласованы.
+  CSV demos/API parity и byte-identical persisted output repeat прошли.
+- D6-08 section показывает checked-load acceptance table, manifest/input/source/
+  state checks и actual handoff paths/SHA-256/runtime; outputs и self-check
+  сохранены. Никакой quality claim по unlabeled demos не сделан.
+- Все 50 защищённых files (configs/data/reports Day02–Day05/Day05 failure CSV/
+  model pair) и отдельно три Day06 demo/report files неизменны по SHA-256;
+  consistency source/input/state hashes повторно проверены. Bundle state:
+  `7623ab0d4d555aed3c73944f59f85acb23e141ada2794fa826c9d7231383b7f7`.
+- docs/day06.md содержит mapping критериев, команды/counts/runtime,
+  artifact hashes/paths, frozen candidate/fit policy/seed/effective parameters,
+  ограничения и handoff Day07. SPEC status обновлён. README/Day07 не менялись;
+  Day07 roadmap pending и требует детализации до реализации. Commit не создан.
 
 ## Roadmap day07
 
@@ -1817,12 +1850,12 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01…D6-07 завершены; следующий исполнимый пункт — D6-08:
+Day06: D6-01…D6-08 завершены; Day07 остаётся roadmap и требует детализации:
 
-> Выполни только D6-08 из PLAN.md: приёмка Day06 по SPEC §11,
-> полный checkpoint и handoff Day07. Не выполняй новый real fit/test prediction,
-> не начинай Day07. Обнови notebook/PLAN/docs, commit не делай.
-> Покажи diff stat с untracked files и предложи commit message.
+> Ознакомься с classification_day07.txt и согласованным handoff docs/day06.md.
+> Детализируй только Day07 в PLAN/SPEC на небольшие самостоятельно исполнимые
+> пункты с dependencies/checks/notebook checkpoints. Покажи промпт только для
+> первого pending пункта. Реализацию Day07 и README пока не начинай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-07 выполнены.
+Day01–Day06 завершены; **day06** принят 2026-10-19 по §11 (D6-01…D6-08).
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -1115,3 +1115,14 @@ train-only fit; после D6-03 этот section показывает пров�
 Day02–Day05 files и bundle/manifest неизменны по SHA-256.
 Не обещать переносимость pickle между версиями, идентичные веса утраченной
 Day05 модели или качество на live news. Непроведённые checks указывать явно.
+
+
+D6-08 acceptance (2026-10-19): полный offline suite — 442 passed,
+46 subtests passed; type gate — 53 project files и 71 notebook modules
+(6 sequential + 65 cell-boundary), 0 errors/warnings. Восемь sections /
+16 code cells выполнены из корня и notebooks/ в чистых kernels без нового
+real fit/test evaluation. Compileall/diff check успешны; protected inputs,
+model pair и Day06 demo/report hashes неизменны. Real build/serialization
+используют evidence D6-02/D6-03, повторная приёмка — checked reuse. Фактические
+команды, runtime, hashes, ограничения и Day07 handoff — `docs/day06.md`.
+CLI Pyright не является полным VS Code Pylance. Day07/итоговый README pending.
