@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01/D6-02 выполнены 2026-10-18; D6-03…D6-08 pending по SPEC §11.
-Следующий исполнимый пункт — D6-03.
+Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 pending по SPEC §11.
+Следующий исполнимый пункт — D6-04.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1298,8 +1298,8 @@ medium тоже разумен. Astra + high имеет смысл при сло
 Планирование выполнено 2026-10-18 по `classification_day06.txt`, SPEC §11
 и принятому handoff D5-06 / `docs/day05.md`; на этапе планирования менялись
 только PLAN/SPEC. D6-01 реализовал loader/contracts/tests/notebook;
-D6-02 — явный train-only build и fresh validation replay. Fitted result
-существует в памяти, model files ещё не созданы.
+D6-02 — явный train-only build и fresh validation replay; D6-03 — local
+joblib/manifest, checked load/reuse и notebook без fit.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
 D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
@@ -1457,7 +1457,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-03 — joblib bundle, manifest, load и reuse без fit
 
-- [ ] Сохранить и загрузить целый fitted Pipeline с inference metadata.
+- [x] Сохранить и загрузить целый fitted Pipeline с inference metadata.
 - Зависит от D6-02. Вход: успешный build result; выход:
   `models/day06/sentiment_bundle.joblib` и соседний `manifest.json` по SPEC §11.
 - В `models/inference_artifact.py` реализовать save/load и явную build-команду;
@@ -1481,7 +1481,51 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-03 из PLAN.md по SPEC §11: bundle, manifest,
   проверенный load и reuse без fit. Вынеси build в явную команду, обнови
   notebook/PLAN/docs и выполни общий checkpoint. Не оценивай test, commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-18): `save_bundle` / `load_bundle` /
+  `prepare_inference_artifact` в `models/inference_artifact.py` реализуют
+  SPEC §11. Preflight schema/metadata/hash/preprocessing/inference runtime
+  выполняется до joblib deserialize; после — typed metadata agreement,
+  fitted components/classes/dimensions/effective config и state checksum.
+  Load не читает dataset/configs/reports, не вызывает fit/predict.
+- Save проверяет staging roundtrip, unchanged vocabulary/IDF/classes/weights
+  и exact validation replay, затем публикует bundle и последним manifest.
+  Для file bytes и fitted state отдельные SHA-256; vocabulary NumPy integer
+  indices нормализуются в hash payload без изменения fitted модели.
+  Partial/corrupt/mismatch output блокирует автоматический overwrite/rebuild.
+  Interrupted manifest publication отдельно покрыта тестом; пара не объявлена
+  общей транзакцией. Trusted pickle/version constraints описаны в docs.
+- Явная команда: `PYTHONPATH=src venv/bin/python -m
+  finnews_sentiment.models.inference_artifact`; flags `--root`, `--output-dir`.
+  Default `models/day06`; relative CLI output считается от root.
+  CLI вызывает canonical module: serialized types не ссылаются на `__main__`.
+  Первый build и загрузка в другом процессе проверены на offline fixture.
+- Реальный instrumented first build: один fit на 2210 train rows, sparse
+  `(2210, 5000)`; два exact validation predict по 553 строкам — fresh build
+  replay и staging roundtrip replay. Candidate `linear_svc`, classes `[0,1,2]`;
+  test/CV/final-run/network calls запрещены. Новый test result не вычислялся.
+- Созданы ignored local artifacts: `sentiment_bundle.joblib` (170102 bytes),
+  SHA-256 `72d5f018ccd5babf9debb597e799ab02a76f8dc551babd216857f9d10cef1300`;
+  `manifest.json` (44552 bytes), SHA-256
+  `7b155e9fada9f7d4404801e316d52dc0b0242f52c5de1700aa7a1b62392d1080`.
+  Два prepare/load repeats с запрещёнными fit/predict/dump/CV/network/final-run
+  сохранили bytes пары; реальный CLI выполнен с reuse готового artifact.
+- Отдельный real standalone process из temporary cwd разрешал Path.read_bytes
+  только для bundle/manifest/preprocess source; load успешен без data/reports,
+  matplotlib и model calls. Bundle type — canonical Python module.
+- Новый `tests/test_day06_artifact.py`: 29 passed. Preflight до unpickle,
+  повреждённый pickle/metadata/state, unfitted/wrong estimator, classes/IDF/
+  vocabulary/weight dimensions/config, partial output, runtime/policy/hash
+  mismatch, replay failure до publication, interruption и no-fit reuse покрыты.
+  Целевые D6 reference/build/artifact tests: 86 passed. Full suite на этом шаге
+  не запускался. Type gate: 49 project files и 61 notebook modules
+  (6 sequential + 55 cell-boundary), 0 errors/warnings. CLI Pyright не является
+  полным запуском Pylance внутри VS Code. Compileall/diff check успешны.
+- `docs/day06.md` содержит build/reuse/load instructions и ограничения.
+  Notebook D6-02 прямой fit заменён read-only load; добавлен отдельный D6-03
+  section. Все шесть code cells выполнены из корня/`notebooks/` в отдельных
+  чистых kernels с запрещёнными fit/predict/transform/dump/CV/network/final-run;
+  outputs сохранены. Все 48 прежних input/final files и bytes artifact pair
+  неизменны после этих проверок. D6-04…D6-08 не начаты, commit не выполнялся.
 
 ### D6-04 — batch prediction для raw unlabeled texts
 
@@ -1614,13 +1658,12 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01/D6-02 завершены; следующий исполнимый пункт — D6-03:
+Day06: D6-01…D6-03 завершены; следующий исполнимый пункт — D6-04:
 
-> Выполни только D6-03 из PLAN.md по SPEC §11 и handoff в docs/day05.md.
-> Реализуй joblib bundle, manifest, проверенный load и reuse без fit.
-> Вынеси build в явную команду; notebook должен читать готовый bundle без fit.
+> Выполни только D6-04 из PLAN.md по SPEC §11: typed raw-text batch inference
+> и input validation поверх готового bundle без fit.
 > Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
-> Не меняй модель и не выполняй test transform/predict/score.
+> Не выполняй CSV CLI будущего D6-06 и test transform/predict/score.
 > Покажи diff stat с untracked files, предложи commit message, не делай commit.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня

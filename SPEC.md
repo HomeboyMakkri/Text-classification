@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, D6-01/D6-02 выполнены.
+Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-03 выполнены.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -910,7 +910,7 @@ raw→clean parity и полные candidate parameters. Перед fit и по�
 `BundleMetadata` возвращает `n_train`, `n_validation`, `n_features`, fresh
 `validation_replay=exact_match` и `validation_reference_sha256` (checksum
 исходного Day04 CSV); contract содержит train IDs в manifest order.
-Новый Day06 result существует в памяти, serialization остаётся D6-03.
+Результат build существует в памяти; D6-03 отдельно сохраняет его на диск.
 
 ### Bundle, manifest и загрузка (D6-03)
 
@@ -923,9 +923,9 @@ signatures зафиксированы в D6-01, без framework/registry:
 ```python
 load_inference_reference(root: Path) -> InferenceReference
 build_inference_bundle(reference: InferenceReference) -> InferenceBundle
-# Будущие операции D6-03:
 save_bundle(bundle: InferenceBundle, directory: Path, *, reference: InferenceReference) -> Path
 load_bundle(path: Path) -> InferenceBundle
+prepare_inference_artifact(root: Path, directory: Path | None = None) -> Path
 ```
 
 `InferenceReference` содержит отдельные train/validation DataFrames, aligned
@@ -950,7 +950,7 @@ SHA-256 `features/preprocess.py`; loader сверяет policy и implementation
 Bundle требует совместимый `src/` и runtime, но для обычного load/predict
 не требует dataset, configs или reports предыдущих дней.
 
-Рядом `models/day06/manifest.json`: schema, SHA-256 bundle и readable копия
+Рядом `models/day06/manifest.json`: schema, SHA-256 bundle/fitted state и readable копия
 metadata для preflight. До `joblib.load` проверить schema, bundle hash,
 preprocessing contract и точное совпадение inference runtime: Python, NumPy,
 SciPy, scikit-learn, joblib, threadpoolctl. Остальные версии frozen run
@@ -958,6 +958,10 @@ SciPy, scikit-learn, joblib, threadpoolctl. Остальные версии froz
 После deserialize проверить metadata agreement, fitted state, steps/types,
 classes `[0,1,2]`, dimensions vocabulary/IDF/classifier и effective config.
 Ошибки информативны; не дообучать и не выбирать другую модель при отказе.
+State checksum связывает vocabulary, IDF, classes, coefficients и intercept;
+NumPy integer indices нормализуются только в hash payload, не в самой модели.
+Deserialize получает уже проверенные bytes из памяти; после load повторно
+проверяется неизменность файлов. Fitted state проверяется без model calls.
 
 Joblib загружает только доверенные локальные artifacts этого проекта:
 checksum обнаруживает порчу, но не удостоверяет автора pickle. Это ограничение
@@ -971,6 +975,16 @@ Save проверяет roundtrip и validation replay загруженного 
 Для нового build разрешён явно заданный новый output directory.
 Не требовать одинаковых joblib bytes после независимых builds; проверять
 hash сохранённого файла и эквивалентность его состояния/предсказаний.
+
+Явная команда D6-03: `PYTHONPATH=src venv/bin/python -m
+finnews_sentiment.models.inference_artifact` из корня; `--root` и
+`--output-dir` задают project root/новый каталог. Относительный CLI output
+считается от root. `prepare_inference_artifact` проверяет frozen reference,
+строит/сохраняет только при отсутствии output; complete artifact используется
+без fit/predict/dump после проверки contract/counts. CLI делегирует canonical
+Python module, чтобы serialized types не зависели от `__main__`.
+Все команды/ограничения — `docs/day06.md`. Notebook читает готовую пару,
+а D6-02 section показывает recorded build evidence без повторного обучения.
 
 ### Вход и выход prediction API (D6-04)
 
