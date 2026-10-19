@@ -1,50 +1,75 @@
+"""Typed raw-text batch inference using a checked, fitted Day06 bundle."""
+
 import argparse
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
-import joblib
-import pandas as pd
+import numpy as np
 
-from finnews_sentiment.features.preprocess import clean_news_data, add_basic_features
-
-
-def load_model(path: Path):
-    bundle = joblib.load(path)
-    return bundle["model"], bundle.get("meta", {})
+from finnews_sentiment.data.load_data import CLASS_ORDER
+from finnews_sentiment.features.preprocess import preprocess_text
+from finnews_sentiment.models.evaluate import _label_ids
+from finnews_sentiment.models.inference_artifact import InferenceBundle, _validate_bundle
 
 
-def predict_for_file(model_path: str, input_path: str, output_path: str) -> None:
-    model_p = Path(model_path)
-    input_p = Path(input_path)
-    output_p = Path(output_path)
+@dataclass(frozen=True)
+class SentimentPrediction:
+    """One result in input order; labels describe sentiment, not confidence."""
 
-    model, meta = load_model(model_p)
-    df = pd.read_csv(input_p)
+    text: str
+    text_clean: str
+    pred_label_id: int
+    pred_label: str
 
-    df = clean_news_data(df, text_col="text")
-    df = add_basic_features(df)
 
-    preds = model.predict(df["text_clean"].astype(str))
-    proba = None
-    if hasattr(model, "predict_proba"):
-        proba = model.predict_proba(df["text_clean"].astype(str))
+def predict_texts(bundle: InferenceBundle, texts: Sequence[str]) -> list[SentimentPrediction]:
+    """Validate the entire raw batch, clean with minimal-v1 and predict once.
 
-    df_out = df.copy()
-    df_out["pred_sentiment"] = preds
-    if proba is not None:
-        for i, cls in enumerate(model.classes_):
-            df_out[f"proba_{cls}"] = proba[:, i]
+    A single text must be passed as [text]. Invalid elements reject the whole
+    batch before any model calls. Order/duplicates are retained; OOV-only
+    nonempty text receives the fitted classifier's ordinary prediction.
+    No fit, probability conversion, filtering or string coercion is performed.
+    """
+    if isinstance(texts, (str, bytes)) or not isinstance(texts, Sequence):
+        raise TypeError("texts must be a Sequence[str] batch; pass one text as [text]")
+    raw_texts = tuple(texts)
+    if not raw_texts:
+        raise ValueError("texts batch must not be empty")
+    cleaned: list[str] = []
+    for index, text in enumerate(raw_texts):
+        if not isinstance(text, str):
+            raise TypeError(f"texts[{index}] must be str, got {type(text).__name__}")
+        clean = preprocess_text(text)
+        if not clean:
+            raise ValueError(f"texts[{index}] is empty after preprocessing")
+        cleaned.append(clean)
+    _validate_bundle(bundle)
+    labels = _label_ids(np.asarray(bundle.pipeline.predict(cleaned)), "inference predictions")
+    if len(labels) != len(raw_texts):
+        raise ValueError(f"Inference prediction length mismatch: expected {len(raw_texts)}, got {len(labels)}")
+    return [
+        SentimentPrediction(text, clean, int(label_id), CLASS_ORDER[int(label_id)])
+        for text, clean, label_id in zip(raw_texts, cleaned, labels, strict=True)
+    ]
 
-    output_p.parent.mkdir(parents=True, exist_ok=True)
-    df_out.to_csv(output_p, index=False)
-    print(f"Сохранён файл с предсказаниями: {output_p}")
+
+def predict_for_file(model_path: Path, input_path: Path, output_path: Path) -> None:
+    """Explicit boundary: CSV adapter/CLI is scheduled for D6-06."""
+    raise NotImplementedError("CSV inference is scheduled for D6-06; use load_bundle + predict_texts for raw-text batches")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="CSV inference adapter (scheduled for D6-06)")
+    parser.add_argument("--model", type=Path, required=True)
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        predict_for_file(args.model, args.input, args.output)
+    except NotImplementedError as error:
+        parser.error(str(error))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Инференс модели для файла с новостями.")
-    parser.add_argument("--model", type=str, required=True, help="Путь к модели (joblib).")
-    parser.add_argument("--input", type=str, required=True, help="Путь к CSV с новыми новостями.")
-    parser.add_argument("--output", type=str, required=True, help="Путь для сохранения CSV с предсказаниями.")
-    args = parser.parse_args()
-
-    predict_for_file(args.model, args.input, args.output)
+    main()

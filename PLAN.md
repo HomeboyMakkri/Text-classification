@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 pending по SPEC §11.
-Следующий исполнимый пункт — D6-04.
+Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04 выполнен 2026-10-19.
+D6-05…D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-05.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1300,6 +1300,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 только PLAN/SPEC. D6-01 реализовал loader/contracts/tests/notebook;
 D6-02 — явный train-only build и fresh validation replay; D6-03 — local
 joblib/manifest, checked load/reuse и notebook без fit.
+D6-04 добавил typed raw-text batch API без fit; CSV adapter остаётся D6-06.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
 D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
@@ -1529,7 +1530,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-04 — batch prediction для raw unlabeled texts
 
-- [ ] Реализовать typed `predict_texts` в `models/predict.py`.
+- [x] Реализовать typed `predict_texts` в `models/predict.py`.
 - Зависит от D6-03. Вход: loaded bundle и `Sequence[str]`; выход:
   `list[SentimentPrediction]` с text/text_clean/pred_label_id/pred_label.
   Один текст передаётся как `[text]`; ровно N результатов в исходном порядке.
@@ -1549,7 +1550,48 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-04 из PLAN.md по SPEC §11: typed raw-text batch
   inference и input validation. Обнови notebook/PLAN и выполни общий checkpoint.
   Используй готовый bundle без fit/test prediction. Commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-19): `models/predict.py` предоставляет frozen
+  `SentimentPrediction(text, text_clean, pred_label_id, pred_label)` и
+  `predict_texts(bundle, texts: Sequence[str]) -> list[SentimentPrediction]`.
+  До единственного predict валидируются весь batch, общий minimal-v1 clean
+  text и fitted bundle. Output проверяется на integer IDs `[0,1,2]`, shape
+  и length; Python int/name возвращаются в исходном порядке с duplicates.
+- Bare str/bytes и non-sequence batch, empty batch, None/NaN/non-string
+  elements, blanks/empty-after-clean вызывают ошибки до model calls;
+  invalid element индекс указан явно. Никакого astype(str), filtering,
+  fit/fit_transform/partial_fit, score/probability output или tabular cleanup.
+  Допустимая OOV строка получает zero-feature row и обычный class prediction.
+- Legacy unchecked `load_model` удалён; старый `predict_for_file` выдаёт
+  `NotImplementedError` с D6-06 boundary. CLI сообщает её через argparse
+  (exit 2, без traceback/file I/O). CSV adapter не реализован опережающе;
+  documented Python API использует готовый `load_bundle`.
+- Новый `tests/test_day06_predict.py`: 31 passed. Проверены batch/single/
+  tuple, order/duplicates, HTML/negation/numbers/currency parity, whole-batch
+  rejection, known class mapping, invalid predicted IDs/dtype/shape/length,
+  OOV zero row, literal nan/NA text, mutated fitted classes и CSV boundary.
+  Training/partial_fit/confidence APIs/reference/network запрещены при
+  inference tests; vocabulary/IDF/classes/weights/metadata неизменны.
+  Offline fitted fixture setup отделён от реального no-fit inference.
+- Целевой regression: D6 predict + artifact — 60 passed. Full pytest suite
+  на этом пункте не запускался. Type gate: 50 project files и 63 notebook
+  modules (6 sequential + 57 cell-boundary), 0 errors/warnings.
+  CLI Pyright не является полным запуском Pylance внутри VS Code.
+  Compileall/diff check успешны.
+- Real audit готового `linear_svc`: raw/clean/prediction `(3,)`, fitted
+  TF-IDF dimensions `(3,5000)`, duplicates retained; single-text prediction
+  совпадает с первым batch result. Разрешены только три predict на новых
+  unlabeled inputs (batch/single/OOV); invalid batch не вызвал predict.
+  OOV `(1,5000)` имеет nnz=0. Все три batch results — positive, OOV — neutral;
+  это фактические outputs без ground truth, не новая quality evaluation.
+- Fitted state/metadata и все 50 files (48 прежних inputs/final + bundle/
+  manifest) SHA-256 неизменны после real API audit и notebook execution.
+  Fit, test prediction, CV/final-run/network/dump не выполнялись.
+- Notebook содержит D6-04 theory/calls/actual table/single/duplicates/invalid/
+  OOV interpretation/self-check; всего восемь code cells. Все выполнены из
+  корня и `notebooks/` в чистых kernels с запрещённым training/serialization/
+  CV/final-run/network и разрешёнными только new-text predict; fitted state
+  сверялось до/после каждого model call. Outputs сохранены, docs обновлены.
+  D6-05…D6-08 не начаты; commit не выполнялся.
 
 ### D6-05 — сквозная consistency и standalone inference
 
@@ -1658,10 +1700,10 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01…D6-03 завершены; следующий исполнимый пункт — D6-04:
+Day06: D6-01…D6-04 завершены; следующий исполнимый пункт — D6-05:
 
-> Выполни только D6-04 из PLAN.md по SPEC §11: typed raw-text batch inference
-> и input validation поверх готового bundle без fit.
+> Выполни только D6-05 из PLAN.md по SPEC §11: consistency report,
+> real validation parity и standalone inference без data/reports/fit.
 > Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
 > Не выполняй CSV CLI будущего D6-06 и test transform/predict/score.
 > Покажи diff stat с untracked files, предложи commit message, не делай commit.

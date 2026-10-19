@@ -1,7 +1,7 @@
 # Day06 — сохранение модели и проверенная загрузка
 
-D6-01…D6-03: frozen input loader, explicit train-only build, joblib bundle и
-manifest. Raw-text batch API и CSV inference появятся в D6-04/D6-06.
+D6-01…D6-04: frozen input loader, explicit train-only build, joblib bundle/
+manifest и typed raw-text batch API. CSV inference остаётся D6-06.
 
 ## Подготовка artifact
 
@@ -78,12 +78,49 @@ matplotlib не требуется для standalone load. Переносимо�
 не обещается. Preprocessing выполняется импортируемой `preprocess_text`,
 а не сериализованной notebook lambda или `__main__` class.
 
+## Raw-text batch API (D6-04)
+
+```python
+from pathlib import Path
+from finnews_sentiment.models.inference_artifact import load_bundle
+from finnews_sentiment.models.predict import predict_texts
+
+bundle = load_bundle(Path("models/day06/sentiment_bundle.joblib"))
+results = predict_texts(bundle, ["<b>No</b> growth in revenue; costs rose by €2.5 million."])
+print(results[0].text_clean)
+print(results[0].pred_label_id, results[0].pred_label)
+```
+
+Вход — непустой `Sequence[str]` (обычно list/tuple); один текст — `[text]`.
+Bare str/bytes, non-sequence batch, empty batch, None/NaN/non-string, blanks
+или empty-after-clean elements вызывают TypeError/ValueError до predict;
+индекс невалидного элемента указан в ошибке. Весь batch проверяется заранее,
+строки не исключаются, missing не превращается в строку `"nan"`.
+Literal strings `"nan"`/`"NA"` остаются текстами.
+
+Выход — `list[SentimentPrediction]`, frozen dataclass с полями `text`,
+`text_clean`, `pred_label_id: int`, `pred_label: str`. N/order/duplicates и raw
+text сохранены; mapping `0=negative, 1=neutral, 2=positive`. True labels не нужны.
+Используется та же `preprocess_text`, затем один fitted Pipeline.predict;
+не вызываются tabular training cleanup, fit/fit_transform/partial_fit.
+Vocabulary/IDF/weights/classes остаются прежними. Непустой OOV-only text
+допускается: zero-feature row получает штатное предсказание classifier.
+Это не понимание неизвестной лексики и не confidence/abstention mechanism.
+Scores/probabilities в records отсутствуют, LinearSVC не даёт predict_proba.
+
+Legacy CSV adapter временно остановлен: `predict_for_file` сообщает
+NotImplementedError с D6-06; CLI даёт понятную argparse error (exit 2), не
+читает/не пишет files и не использует старый unchecked joblib loader.
+Для текущего пункта использовать Python batch API; полный CSV contract
+и реализация остаются D6-06.
+
 ## Notebook и границы ML
 
 `notebooks/day06_inference.ipynb` исполняется из корня/`notebooks/` с чистого
 kernel. D6-01 читает frozen references, D6-02 показывает сохранённую build
-metadata, D6-03 — verified artifact load. Готовый notebook не обучает модель,
-не вызывает predict и не пишет bundle/manifest. При отсутствии artifact
+metadata, D6-03 — verified artifact load, D6-04 — new-text API calls.
+Готовый notebook не обучает модель и не пишет bundle/manifest. Predict
+используется только в D6-04 на новых unlabeled API inputs. При отсутствии artifact
 сначала отдельно выполнить build-команду; notebook не создаёт его автоматически.
 
 Candidate/config/seed/row order/duplicates сохраняются по frozen protocol.
@@ -107,10 +144,21 @@ tests. Type gate: 49 project files и 61 notebook modules (6 sequential +
 Pylance внутри VS Code. Compileall и diff check успешны; полный pytest suite
 в D6-03 не запускался. Local model/report artifacts не добавляются в Git.
 
+Checkpoint D6-04 (2026-10-19): 31 новый prediction test, вместе с artifact
+regression — 60 passed. Type gate: 50 project files и 63 notebook modules
+(6 sequential + 57 cell-boundary), 0 errors/warnings; это CLI Pyright, не полный
+запуск Pylance внутри VS Code. Полный pytest suite здесь не запускался.
+Реальный batch/single/OOV inference и invalid-input rejection проверены без
+fit/test prediction; fitted state/metadata неизменны. Все восемь notebook
+code cells выполнены в чистых kernels из двух cwd; разрешены только new-text
+model calls, training/serialization/CV/final-run/network запрещены.
+Все 50 input/final/artifact files неизменны; compileall/diff check успешны.
+Unlabeled smoke outputs не используются для accuracy/F1 или настройки модели.
+
 Проверки fixtures отдельно от реального build/roundtrip и clean-kernel runs:
 
 ```bash
-venv/bin/python -m pytest tests/test_day06_artifact.py tests/test_day06_build.py tests/test_day06_reference.py -v
+venv/bin/python -m pytest tests/test_day06_predict.py tests/test_day06_artifact.py -v
 venv/bin/python scripts/check_types.py
 venv/bin/python -m compileall -q src tests
 git diff --check

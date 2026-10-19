@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-03 выполнены.
+Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-04 выполнены.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -1001,6 +1001,9 @@ Python module, чтобы serialized types не зависели от `__main__`
 `0=negative`, `1=neutral`, `2=positive`. True labels для inference не нужны.
 Raw `(N,)` → общая `preprocess_text` → clean `(N,)` → сохранённый TF-IDF
 `(N, V)` sparse → classifier predictions `(N,)` → typed records.
+`SentimentPrediction` — frozen dataclass с четырьмя скалярными полями.
+API делает один predict после проверки всего batch и fitted bundle;
+проверяет integer class IDs/shape/length результата до возврата records.
 Не вызывать `clean_news_data`, `preprocess_news` или `add_basic_features`:
 это табличные training/inspection контракты, а не обработка unlabeled batch.
 
@@ -1010,6 +1013,10 @@ features даёт нулевой TF-IDF row и штатный class prediction; 
 bag-of-words, не повод fit нового vocabulary. Не обещать abstention/confidence.
 Текущий LinearSVC не даёт `predict_proba`; scores, вероятности и calibration
 не входят в выход API. Другой classifier ради probabilities не обучать.
+До D6-06 legacy `predict_for_file`/CSV CLI возвращают явную диагностику
+о pending CSV adapter, не читают/не записывают files и не используют прежний
+непроверенный loader/tabular preprocessing. Python API работает через
+`load_bundle` и `predict_texts`; команды и пример — `docs/day06.md`.
 
 ### Roundtrip, CSV adapter и новые примеры (D6-05…D6-07)
 
