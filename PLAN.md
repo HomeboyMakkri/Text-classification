@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04 выполнен 2026-10-19.
-D6-05…D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-05.
+Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04/D6-05 выполнены 2026-10-19.
+D6-06…D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-06.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1301,6 +1301,7 @@ medium тоже разумен. Astra + high имеет смысл при сло
 D6-02 — явный train-only build и fresh validation replay; D6-03 — local
 joblib/manifest, checked load/reuse и notebook без fit.
 D6-04 добавил typed raw-text batch API без fit; CSV adapter остаётся D6-06.
+D6-05 проверил full validation parity, standalone process и consistency report.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
 D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
@@ -1595,7 +1596,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-05 — сквозная consistency и standalone inference
 
-- [ ] Доказать согласованность preprocessing, serialization и public API.
+- [x] Доказать согласованность preprocessing, serialization и public API.
 - Зависит от D6-04. Использовать готовый bundle и прежний validation reference,
   без нового fit и без test prediction. Offline fixtures отдельно от real replay.
 - Проверить все train/validation raw→clean значения; все validation predictions
@@ -1617,7 +1618,52 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-05 из PLAN.md по SPEC §11: consistency report,
   real validation parity и standalone process без data/reports/fit. Обнови
   notebook/PLAN, выполни общий checkpoint. Test не предсказывай, commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-19): `models/inference_consistency.py` реализует
+  `check_inference_consistency(root) -> ConsistencyRun`, CLI и typed report.
+  Все train/validation raw-clean pairs проверяются до model calls, validation
+  IDs/order/truth сверяются с frozen contract. Loaded Pipeline и raw-text API
+  обязаны воспроизвести все saved pred IDs; label mapping/raw-clean output
+  также проверяются. State/metadata сравниваются после каждого parent predict.
+- Standalone child получает копии только src и bundle/manifest, новый cwd,
+  текущий interpreter с `-I -B`. Import не читает artifact; training guards
+  устанавливаются до project imports. Python audit блокирует writes/network
+  и reads вне isolated/runtime/system paths; data/configs/reports не копируются
+  и запрещены к чтению. Guard probes проверены; это не OS security sandbox.
+  Child возвращает actual typed API records, runtime и state hash; полное
+  evidence сверяется с parent predictions на тех же новых unlabeled inputs.
+- Generated `reports/day06/consistency.json` связывает 30 input/artifact hashes,
+  26 source hashes, runtime, raw-clean counts, aligned reference/Pipeline/API
+  hashes, fitted state и standalone checks. Нет timestamp/PID/temp paths/
+  self-checksum. Report публикуется только после всех checks; failure сохраняет
+  прошлый report. Повтор с теми же inputs/source/runtime byte-identical.
+- Serialization evidence явно берётся из D6-03 manifest state checksum и
+  recorded exact build replay. Нового build/save/joblib.dump не было;
+  before-save объект или идентичность утраченных весов Day05 не выдуманы.
+- Новый `tests/test_day06_consistency.py`: 21 passed. Проверены реальный child
+  на isolated fixture copy, repeat bytes/mtime, raw-clean skew на обоих splits,
+  IDs/truth/predictions/API mapping mismatch, state mutation, altered model/
+  reference с сохранением старого report, child exit/JSON/evidence/timeout,
+  а также malicious import probes на artifact I/O/fit/network и pure import
+  checker без artifact I/O/process launch. Fixtures отделены от real evidence.
+- Целевой regression: D6 consistency + prediction — 52 passed. Full pytest suite
+  на этом пункте не запускался. Type gate: 52 project files и 65 notebook
+  modules (6 sequential + 59 cell-boundary), 0 errors/warnings.
+  CLI Pyright не является полным запуском Pylance внутри VS Code.
+  Compileall/diff check успешны.
+- Real audit: 2210 train + 553 validation raw/clean pairs совпали, все 553
+  loaded-Pipeline/API validation predictions exact match reference по IDs/
+  truth/order. Parent делает два validation predict и один new-text batch
+  из двух фраз; child — только эти новые фразы. Fit/test/CV/final-run/network/
+  serialization calls запрещены; state и metadata неизменны.
+- Два полных real checks дали одинаковый report: 8370 bytes, SHA-256
+  `93e0a633ef0fa4f3b076823b3cadacea78012454dcbb7b582f2bb70a74673983`.
+  Реальный CLI и notebook используют ту же функцию. Все 50 прежних input/
+  final/artifact files SHA-256 неизменны; нового test evaluation нет.
+- Notebook: отдельный D6-05 section, всего десять code cells; выполнен из
+  корня и `notebooks/` в чистых kernels с разрешёнными только validation/new-text
+  predicts, без training/serialization/CV/final-run/network; state проверялось
+  до/после model calls, actual outputs сохранены. Docs/контракты обновлены.
+  D6-06…D6-08 не начаты; commit не выполнялся.
 
 ### D6-06 — CSV inference CLI и форматы файлов
 
@@ -1700,12 +1746,12 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01…D6-04 завершены; следующий исполнимый пункт — D6-05:
+Day06: D6-01…D6-05 завершены; следующий исполнимый пункт — D6-06:
 
-> Выполни только D6-05 из PLAN.md по SPEC §11: consistency report,
-> real validation parity и standalone inference без data/reports/fit.
+> Выполни только D6-06 из PLAN.md по SPEC §11: CSV adapter/CLI
+> поверх готового load_bundle/predict_texts API и документация формата.
 > Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
-> Не выполняй CSV CLI будущего D6-06 и test transform/predict/score.
+> Не выполняй fit и test transform/predict/score; не начинай D6-07.
 > Покажи diff stat с untracked files, предложи commit message, не делай commit.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня

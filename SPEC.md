@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-04 выполнены.
+Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-05 выполнены.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -1027,6 +1027,28 @@ IDF, classes и classifier weights до/после serialization и нескол
 Новый процесс читает только bundle/manifest, совместимый src/runtime и новые
 тексты: без чтения training artifacts, fit, network или test predictions.
 Offline fixtures проверяют те же failure modes; real replay фиксировать отдельно.
+
+D6-05: `models/inference_consistency.py` предоставляет
+`check_inference_consistency(root: Path) -> ConsistencyRun` и CLI
+`PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.inference_consistency`.
+Typed result содержит `report_path` и `ConsistencyPayload`; report связывает
+input/artifact/source hashes, runtime, counts, aligned prediction hashes,
+state до/после и standalone evidence. Aligned hash включает source IDs,
+true label IDs и predicted IDs в исходном validation порядке.
+Pre-save parity опирается на D6-03 manifest/state checksum/build replay;
+report явно называет это recorded evidence, не новым save/roundtrip.
+
+Child запускается через текущий Python с `-I -B` во временной cwd с копиями
+только src/artifact pair. Guards блокируют training/serialization/network,
+artifact reads при import и чтение вне isolated/runtime/system paths;
+data/configs/reports не копируются и их чтение запрещено. Проверяются
+установленные guards, import purity и полное совпадение новых API records
+parent/child. Это Python audit verification, не OS security sandbox.
+
+Report записывается только после всех checks, через replace одного JSON file.
+Ошибка сохраняет прежний report, одинаковые inputs/source/runtime дают
+byte-identical content без timestamp/temp path/PID/self-checksum; совпадающий
+report не переписывается. Source checksum не включает сам report.
 
 Сохранить привычный CSV entrypoint в `models/predict.py`:
 `PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.predict

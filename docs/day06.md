@@ -1,7 +1,8 @@
 # Day06 — сохранение модели и проверенная загрузка
 
-D6-01…D6-04: frozen input loader, explicit train-only build, joblib bundle/
-manifest и typed raw-text batch API. CSV inference остаётся D6-06.
+D6-01…D6-05: frozen input loader, explicit train-only build, joblib bundle/
+manifest, typed raw-text API и consistency/standalone verification.
+CSV inference остаётся D6-06.
 
 ## Подготовка artifact
 
@@ -114,13 +115,47 @@ NotImplementedError с D6-06; CLI даёт понятную argparse error (exit
 Для текущего пункта использовать Python batch API; полный CSV contract
 и реализация остаются D6-06.
 
+## Consistency и standalone check (D6-05)
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.inference_consistency
+```
+
+Команда использует готовый bundle и frozen references, ничего не обучает и
+не сериализует. Reusable API: `check_inference_consistency(root: Path)`;
+typed result содержит `report_path` и `report`.
+
+Проверяются raw-clean parity всех train/validation строк, IDs/truth/order и
+все validation predictions загруженного Pipeline/public API против Day04
+reference. Aligned SHA-256 включает source IDs, true labels и predictions.
+Vocabulary/IDF/classes/weights и metadata не должны изменяться. Evidence
+до/после save берётся из проверенного D6-03 manifest/state hash/build replay;
+для этой проверки новый before-save объект не создаётся и save не повторяется.
+
+В child копируются только src и два artifact files. Python запускается
+через тот же interpreter с `-I -B`, новой cwd и guards: запрет training/
+serialization/network, artifact I/O при import и чтения вне copied/runtime/
+system paths. Dataset/configs/reports отсутствуют в workspace и запрещены
+для чтения; probes проверяют установку guards. Parent/child должны вернуть
+одинаковые records на двух новых unlabeled текстах. Это проверка через Python
+audit, не OS sandbox. Import checker сам не читает данные и не запускает child.
+
+Только после успеха всех modes записывается ignored
+`reports/day06/consistency.json`: input/artifact/source hashes, runtime,
+counts, parity, state и standalone evidence. Ошибка не затирает прошлый report;
+тот же результат byte-identical и не переписывается. Timestamp, PID,
+temporary paths и self-checksum в JSON отсутствуют. Это подтверждение
+согласованности, не новая независимая оценка accuracy/F1.
+
 ## Notebook и границы ML
 
 `notebooks/day06_inference.ipynb` исполняется из корня/`notebooks/` с чистого
 kernel. D6-01 читает frozen references, D6-02 показывает сохранённую build
-metadata, D6-03 — verified artifact load, D6-04 — new-text API calls.
+metadata, D6-03 — verified artifact load, D6-04 — new-text API calls,
+D6-05 — full consistency и guarded standalone process.
 Готовый notebook не обучает модель и не пишет bundle/manifest. Predict
-используется только в D6-04 на новых unlabeled API inputs. При отсутствии artifact
+используется в D6-04 на новых inputs и в D6-05 для validation parity/new-text
+standalone comparison. При отсутствии artifact
 сначала отдельно выполнить build-команду; notebook не создаёт его автоматически.
 
 Candidate/config/seed/row order/duplicates сохраняются по frozen protocol.
@@ -155,10 +190,22 @@ model calls, training/serialization/CV/final-run/network запрещены.
 Все 50 input/final/artifact files неизменны; compileall/diff check успешны.
 Unlabeled smoke outputs не используются для accuracy/F1 или настройки модели.
 
+Checkpoint D6-05 (2026-10-19): 21 новый consistency test, вместе с prediction
+regression — 52 passed. Type gate: 52 project files и 65 notebook modules
+(6 sequential + 59 cell-boundary), 0 errors/warnings. Это CLI Pyright,
+не полный Pylance внутри VS Code; полный pytest suite не запускался.
+Реальные 2210 train + 553 validation raw/clean pairs и все 553 predictions
+совпали. Loaded Pipeline/public API/child fitted state согласованы;
+serialization evidence reused, fit/test prediction не выполнялись.
+Report содержит 30 input/artifact hashes и 26 source hashes, повторяется
+byte-for-byte. Все десять notebook code cells выполнены из двух cwd в чистых
+kernels с guards. Все 50 прежних input/final/artifact files неизменны;
+compileall/diff check успешны. Новая ML quality measurement не заявляется.
+
 Проверки fixtures отдельно от реального build/roundtrip и clean-kernel runs:
 
 ```bash
-venv/bin/python -m pytest tests/test_day06_predict.py tests/test_day06_artifact.py -v
+venv/bin/python -m pytest tests/test_day06_consistency.py tests/test_day06_predict.py -v
 venv/bin/python scripts/check_types.py
 venv/bin/python -m compileall -q src tests
 git diff --check
