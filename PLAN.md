@@ -6,8 +6,8 @@ Day01 завершён 2026-10-09. Day02 (D2-01…D2-06) завершён 2026-1
 Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
-Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-06 выполнены 2026-10-19.
-D6-07/D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-07.
+Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-07 выполнены 2026-10-19.
+D6-08 pending по SPEC §11. Следующий исполнимый пункт — D6-08.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1303,6 +1303,7 @@ joblib/manifest, checked load/reuse и notebook без fit.
 D6-04 добавил typed raw-text batch API без fit; CSV adapter остаётся D6-06.
 D6-05 проверил full validation parity, standalone process и consistency report.
 D6-06 добавил CSV adapter/CLI поверх того же typed raw-text API.
+D6-07 добавил восемь новых smoke inputs, сохранённые predictions и инструкцию.
 Предварительные четыре пункта roadmap заменены восемью небольшими задачами.
 Один ID — один промпт Codex. Порядок: D5-06 → D6-01 → D6-02 → D6-03 →
 D6-04 → D6-05 → D6-06 → D6-07 → D6-08. Фактические статусы — ниже.
@@ -1728,7 +1729,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ### D6-07 — новые examples и инструкция использования
 
-- [ ] Подготовить небольшую воспроизводимую демонстрацию на новых текстах.
+- [x] Подготовить небольшую воспроизводимую демонстрацию на новых текстах.
 - Зависит от D6-06. Создать tracked `docs/day06_examples.csv` с вручную
   составленными финансовыми фразами, которых нет в canonical dataset;
   не выбирать примеры из train/validation/test. Достаточно 6–8 разных ситуаций.
@@ -1749,7 +1750,39 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 - Промпт: «Выполни только D6-07 из PLAN.md по SPEC §11: новые smoke examples,
   сохранённые predictions и docs/day06.md. Обнови notebook/PLAN, выполни общий
   checkpoint. Без fit, tuning, test prediction и final README. Commit не делай».
-- Свидетельство: pending.
+- Свидетельство (2026-10-19): tracked `docs/day06_examples.csv` содержит
+  восемь вручную составленных unlabeled inputs (example_id/text), зафиксированных
+  до первого inference: growth/loss/neutral event/negation/comparison/HTML/
+  currency/unchanged guidance/OOV. Нет raw/clean совпадений с canonical CSV;
+  novelty audit читает только text, без labels и model calls на test.
+- Реальный готовый bundle: API/CLI predictions совпали, исходные fields,
+  IDs/order сохранены. Output `(8,5)` из input `(8,2)` записан в ignored
+  `reports/day06/demo_predictions.csv`; SHA-256
+  `2d689d528e0c4520e5b9e0616cf7206808f959409e83b66ea89d106d5856b6db`.
+  Input SHA-256 `d99af46c74f82bf0fd999a9ea84e4de66e3ed4b7ddb9dbf93f3f6a7a8a9c363c`.
+  Фактические 01/04/05 → positive, остальные → neutral; не требуется coverage
+  всех классов. Фразы/модель по ответам не корректировались, metrics не считались.
+- Notebook: отдельный D6-07 section с actual raw/clean/predicted table,
+  OOV zero-row и объяснением ограничений. Все 14 code cells выполнены в чистых
+  kernels из корня и notebooks/ с training/dump/CV/final-run/network guards;
+  parent predict проверяет разрешённые new-text/validation inputs и state
+  до/после. CLI child отдельно запрещает fit/dump/network/reference reads.
+  Первый запуск создал report; повтор с temporary CLI output подтвердил
+  byte-identical report и API parity, без замены существующего файла.
+- docs/day06.md завершён в рамках D6-07: build отдельно от inference, runtime,
+  trusted-local joblib/version policy, Python/CSV commands, preprocessing,
+  errors/reuse и OOV/LinearSVC/no-label limitations. Build command проверена
+  в reuse mode с запрещёнными fit/predict/dump/network; оба Python snippets
+  исполнены на реальном bundle; конкретная demo CLI repeat + cmp успешны.
+- 83 целевых CSV/predict/consistency pytest passed. Новых tests для CSV/docs
+  не добавлялось: contracts уже покрыты D6-04…D6-06, реальные examples проверены
+  notebook. Type gate: 53 project files; 69 notebook modules (6 sequential +
+  63 cell-boundary), 0 errors/warnings. CLI Pyright не полный VS Code Pylance;
+  full pytest suite не запускался (D6-08). Compileall/diff check успешны.
+- SHA-256 всех 49 файлов configs/data/reports Day02–Day05/model pair из snapshot
+  не изменились. Consistency report input/source/state hashes проверены;
+  training/test prediction/tuning не выполнялись. README/Day07 и D6-08
+  не начаты; commit не выполнялся.
 
 ### D6-08 — итоговая приёмка и handoff Day07
 
@@ -1784,13 +1817,12 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01…D6-06 завершены; следующий исполнимый пункт — D6-07:
+Day06: D6-01…D6-07 завершены; следующий исполнимый пункт — D6-08:
 
-> Выполни только D6-07 из PLAN.md по SPEC §11: новые smoke examples,
-> сохранённые predictions и инструкция docs/day06.md.
-> Выполни общий checkpoint и запиши фактическое свидетельство в PLAN.
-> Не выполняй fit, tuning или test transform/predict/score; final README не меняй.
-> Покажи diff stat с untracked files, предложи commit message, не делай commit.
+> Выполни только D6-08 из PLAN.md: приёмка Day06 по SPEC §11,
+> полный checkpoint и handoff Day07. Не выполняй новый real fit/test prediction,
+> не начинай Day07. Обнови notebook/PLAN/docs, commit не делай.
+> Покажи diff stat с untracked files и предложи commit message.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

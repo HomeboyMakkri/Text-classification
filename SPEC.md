@@ -7,7 +7,7 @@
 через явные контракты, небольшие изменения, проверки и воспроизводимые notebooks.
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
-Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-06 выполнены.
+Day01–Day05 завершены; **day06** детализирован в §11, D6-01…D6-07 выполнены.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -1083,6 +1083,12 @@ CLI использует paths относительно cwd, сообщает о
 и не ground truth для accuracy/F1. Показывать фактический output без правки
 примеров/модели ради красивого результата. Дубликаты/невалидный ввод отдельно
 демонстрируют контракт API, а не качество модели.
+D6-07 использует восемь inputs `example_id,text` в `docs/day06_examples.csv`;
+`reports/day06/demo_predictions.csv` сохраняет фактический CLI output и
+сверяется с public API. Notebook при повторе генерирует temporary output
+и проверяет bytes существующего report; несовпадение останавливает execution,
+автоматической перезаписи/retraining нет. Нулевой TF-IDF row для непустого
+OOV text допустим; coverage всех predicted классов не является критерием приёмки.
 
 ### Артефакты и приёмка (D6-08)
 

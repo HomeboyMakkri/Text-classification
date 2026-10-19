@@ -1,7 +1,8 @@
 # Day06 — сохранение модели и проверенная загрузка
 
-D6-01…D6-06: frozen input loader, explicit train-only build, joblib bundle/
-manifest, typed raw-text API, consistency/standalone verification и CSV CLI.
+D6-01…D6-07: frozen input loader, explicit train-only build, joblib bundle/
+manifest, typed raw-text API, consistency/standalone verification, CSV CLI
+и сохранённые smoke examples. Итоговая приёмка остаётся D6-08.
 
 ## Подготовка artifact
 
@@ -108,6 +109,11 @@ Vocabulary/IDF/weights/classes остаются прежними. Непусто
 Это не понимание неизвестной лексики и не confidence/abstention mechanism.
 Scores/probabilities в records отсутствуют, LinearSVC не даёт predict_proba.
 
+Preprocessing `minimal-v1` декодирует HTML entities, убирает полные HTML tags,
+приводит к lowercase и нормализует whitespace. Отрицание, числа, валюты и
+пунктуация сохраняются. Stopwords/stemming/lemmatization здесь не применяются;
+на новых текстах vocabulary/IDF не пересчитываются.
+
 ## CSV inference (D6-06)
 
 Из корня проекта, с готовым trusted local artifact, существующим input и
@@ -154,6 +160,58 @@ batch отвергается; input=output/hardlink → разные files об�
 existing output → FileExistsError. CLI печатает понятную error (exit 2) без
 traceback и не создаёт output на invalid input/model/path.
 
+## Новые smoke examples (D6-07)
+
+Tracked `docs/day06_examples.csv` содержит восемь вручную составленных
+английских inputs с вымышленными названиями компаний и `example_id` 01…08.
+Это identifier, не label. Темы: рост прибыли, убыток, календарное событие,
+отрицание роста, сравнение с прошлым годом, HTML/валюта, неизменный прогноз,
+OOV-only text. До первого inference фразы зафиксированы; raw/clean совпадений
+с canonical dataset нет. Проверка читает только text, не использует test labels
+и не вызывает test transform/predict/score.
+
+С готовой парой model/manifest выполнить из корня:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.predict \
+  --model models/day06/sentiment_bundle.joblib \
+  --input docs/day06_examples.csv --output reports/day06/demo_predictions.csv
+```
+
+Получится ignored local `reports/day06/demo_predictions.csv`: `(8, 2)` →
+`(8, 5)`, все исходные fields плюс cleaned text и actual prediction. Это
+генерируемый report; в Git добавляется только input CSV. Нужны существующий
+`venv/`, pinned runtime из `requirements-day03.txt` (он включает Day01) и
+совместимая trusted artifact pair. Для notebook дополнительно нужны Jupyter/
+IPython из Day01; `requirements-dev.txt` нужен для pytest/type gate.
+
+Если report уже существует, CLI откажет в перезаписи. Для проверки повтора
+сохранить результат в новый временный каталог и сравнить bytes:
+
+```bash
+demo_check_dir=$(mktemp -d)
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.predict \
+  --model models/day06/sentiment_bundle.joblib \
+  --input docs/day06_examples.csv --output "$demo_check_dir/predictions.csv"
+cmp reports/day06/demo_predictions.csv "$demo_check_dir/predictions.csv"
+```
+
+Временный каталог можно удалить после проверки. Notebook делает тот же
+repeat через TemporaryDirectory, сверяет все fields и public API, автоматически
+удаляет временный output. При несовпадении он останавливается, не заменяя report.
+Build/reuse модели — отдельная команда из первого раздела; inference не
+восстанавливает отсутствующую/повреждённую пару и не обучает новый classifier.
+
+Фактический первый запуск: `01/04/05` → positive, остальные → neutral;
+negative не появился, и это допустимо. В частности, фраза `02` про net loss
+получила neutral, а `04` с did not increase — positive. Эти ответы показываются
+без изменения inputs или модели. Нулевой OOV row (`08`) также дал neutral;
+это обычное решение classifier при отсутствии известных признаков.
+Здесь нет ground-truth labels, accuracy/F1, confidence или обещания качества
+на live news. Bag-of-words может плохо учитывать отрицание и сравнение.
+Duplicates/invalid inputs демонстрируются отдельно в D6-04/D6-06 notebook;
+smoke examples не заменяют real validation replay D6-05.
+
 ## Consistency и standalone check (D6-05)
 
 ```bash
@@ -194,6 +252,8 @@ metadata, D6-03 — verified artifact load, D6-04 — new-text API calls,
 D6-05 — full consistency и guarded standalone process.
 В D6-06 temporary CSV показывает adapter/API equivalence и failure modes;
 temporary inputs/outputs удаляются после показа таблицы.
+В D6-07 показаны восемь сохранённых raw/clean/predicted rows и API/CLI parity;
+при повторе сохранённый report проверяется без перезаписи.
 Готовый notebook не обучает модель и не пишет bundle/manifest. Predict
 используется в D6-04 на новых inputs и в D6-05 для validation parity/new-text
 standalone comparison. При отсутствии artifact
@@ -253,6 +313,17 @@ code cells (два cwd/clean kernels) проверены с training/network/dum
 50 прежних input/final/artifact files и fitted state неизменны; test prediction
 не выполнялся. Consistency report regenerated для текущих source hashes.
 Compileall/diff check успешны. Persistent demos остаются D6-07.
+
+Checkpoint D6-07 (2026-10-19): восемь новых inputs без canonical raw/clean
+совпадений; actual CSV/API parity и byte-identical CLI repeat проверены.
+Все 14 code cells исполнены из двух cwd в чистых kernels с training/network/
+serialization guards; output и интерпретация сохранены. 83 целевых tests passed;
+53 project files + 69 notebook modules (6 sequential / 63 cell-boundary),
+0 errors/warnings. CLI Pyright не является полным VS Code Pylance; полный
+pytest suite остаётся D6-08. Build-команда проверена как reuse без fit/predict/
+dump; Python snippets и demo CLI commands исполнены на реальном bundle.
+Все 49 frozen files из snapshot и fitted state неизменны; compileall/diff check
+успешны. Новых quality measurements, tuning или test prediction не было.
 
 Проверки fixtures отдельно от реального build/roundtrip и clean-kernel runs:
 
