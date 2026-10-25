@@ -8,14 +8,16 @@
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
 Day01–Day06 завершены; **day06** принят 2026-10-19 по §11 (D6-01…D6-08).
-Day07 спланирован в §12 и PLAN D7-01…D7-07; реализация и приёмка pending.
+Day07 выполняется по §12 и PLAN D7-01…D7-07; приёмка всего дня pending.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
 ## 2. Источники требований и решения
 
-Прочитаны README, overall, все семь day-файлов, requirements, baseline config,
-все стартовые модули `src/finnews_sentiment/` и placeholder notebooks.
+При первичном аудите прочитаны README, overall, все семь day-файлов,
+requirements, baseline config, стартовые модули `src/finnews_sentiment/`
+и placeholder notebooks. Текущее состояние Day01–Day06 принято;
+актуальная карта реализации — §5, текущие статусы — PLAN.
 `venv/` и Git metadata — служебное окружение, не исходники задания.
 
 Решения, устраняющие расхождения исходных примеров:
@@ -27,8 +29,8 @@ Transformer fine-tuning, HTTP API, UI, deployment,
 | README fit TF-IDF до split | Сначала split; fit transformations только на train |
 | Day03 называет оценку test, Day04 выбирает улучшения | Day03 даёт baseline на validation; held-out test не участвует в выборе |
 | README требует +5%, day04 требует попытки | Минимум три обоснованных эксперимента; прирост — исследовательская цель, не гарантированный gate |
-| NLTK читается при import; тикеры заменяются после lower | Это известные дефекты шаблона day02; исправлять в day02, не использовать в day01 |
-| Стартовый train/inference/config | Учебные заготовки, пока не приняты и не проверены как рабочий workflow |
+| NLTK читается при import; тикеры заменяются после lower | Дефекты исходного шаблона устранены Day02: minimal-v1 не требует NLTK resources и сохраняет финансовые сигналы |
+| Стартовый train/inference/config | Принятые реализации Day03/Day06 и configs заменили исходные заготовки; training и inference имеют отдельные entrypoints по §5 |
 | Day06 просит сохранить модель и vectorizer | Сохранять один fitted TF-IDF/classifier Pipeline в joblib bundle; preprocessing выполнять общей `preprocess_text`, не старым табличным адаптером |
 
 Улучшение показывается и как абсолютная разница macro F1, и как относительное
@@ -49,9 +51,14 @@ Transformer fine-tuning, HTTP API, UI, deployment,
   не NLP preprocessing. Метки сохраняются строками.
 - Лицензия данных: CC-BY-NC-SA-3.0, авторство Malo et al. (2014),
   *Good debt or bad debt: Detecting semantic orientations in economic texts*.
-  Архив и производный CSV не включаются в Git; инструкция воспроизводит загрузку.
-- `data/raw/` — локальный immutable archive; `data/interim/financial_phrasebank_75agree.csv`
-  — каноническое представление, ещё не очищенное для ML.
+  В текущем Git index уже tracked `data/raw/FinancialPhraseBank-v1.0.zip`
+  и `data/raw/source.json` (проверено D7-01/D7-02). `/data/` в `.gitignore`
+  не исключает ранее tracked files; эти файлы сохраняются без изменения.
+  Производные CSV, processed/split artifacts остаются local/ignored.
+- `data/raw/` — immutable source archive и metadata;
+  `data/interim/financial_phrasebank_75agree.csv` — каноническое представление,
+  ещё не очищенное для ML. Source preparation проверяет cached archive SHA-256;
+  download при отсутствии архива остаётся отдельным явным `--download`.
 
 ## 4. Контракт day01
 
@@ -96,23 +103,62 @@ Day01 ничего не обучает, не создаёт numeric labels, не
 
 ## 5. Архитектура
 
+Актуальная карта D7-02; module names и пути artifacts сохраняются.
+
 ```text
-configs/dataset.json                    # pinned source/labels
+configs/                               # pinned source, baseline, fixed experiments
 src/finnews_sentiment/
-  data/load_data.py                     # canonical CSV contract
-  data/prepare_phrasebank.py            # explicit source conversion/download
-  visualization/eda.py                  # pure summaries and figures
-  features/preprocess.py                # day02 template
-  models/train_model.py, predict.py     # day03/day06 templates
-notebooks/day01_eda.ipynb                # executable teaching narrative
-tests/test_day01.py                     # offline contract checks
-reports/day01/                          # reproducible local outputs
-requirements-day01.txt                  # verified day01 versions
-requirements.txt                       # original broad curriculum dependencies
+  data/                                # loading, preparation, groups/splits, configs
+  features/                            # minimal-v1, labels, duplicate/conflict policy
+  models/                              # train/CV/evaluation, frozen bundle, inference
+  visualization/eda.py                  # summaries and plots without GUI
+notebooks/day01_eda.ipynb                # EDA checkpoint
+notebooks/day02_preprocessing.ipynb      # deterministic preprocessing checkpoint
+notebooks/day03_baseline.ipynb           # train/validation baseline checkpoint
+notebooks/day04_experiments.ipynb        # train-only CV and frozen choice
+notebooks/day05_error_analysis.ipynb     # validation errors + checked final cache
+notebooks/day06_inference.ipynb          # bundle load, consistency, demo
+notebooks/day07_review.ipynb             # current finalization checkpoints
+docs/day01.md ... docs/day07.md          # stage instructions and acceptance evidence
+tests/                                 # offline pytest contracts; legacy unittest kept
+scripts/check_types.py                  # project + sequential/cell-boundary notebook gate
+data/raw/                              # tracked immutable ZIP/source.json exception
+data/interim/, data/processed/           # local/ignored canonical, processed and split CSV
+models/day06/                           # local/ignored trusted bundle + manifest
+reports/day01/ ... reports/day06/        # generated reports; tracked observations exception
+.cache/                                # ignored logs, temporary notebook executions
+requirements-day01.txt                  # pinned data/EDA/notebook runtime
+requirements-day03.txt                  # includes Day01 pins + ML/inference runtime
+requirements-dev.txt                    # includes Day01 pins + pytest/type tooling
+requirements.txt                        # original broad curriculum dependencies
 ```
 
-Нет необходимости создавать общую config framework. Dataclasses и small functions
-допустимы, если делают контракт понятнее. Notebook не дублирует бизнес-логику.
+| Реализация в `src/finnews_sentiment/` | Роль / поддерживаемый вход |
+| --- | --- |
+| `data/load_data.py`, `prepare_phrasebank.py` | Canonical schema; явная проверка pinned ZIP и conversion/download |
+| `features/preprocess.py`, `labels_duplicates.py`, `data/prepare_day02.py` | Shared minimal-v1, mapping/groups/conflicts и processed/provenance artifacts |
+| `data/load_processed.py`, `baseline_config.py`, `split_data.py`, `experiment_splits.py` | Checked inputs/configs, deterministic group splits и train-only folds |
+| `models/train_model.py`, `run_baseline.py`, `evaluate.py` | Builders/fit/evaluation; CLI `finnews_sentiment.models.train_model` вызывает baseline runner |
+| `models/experiment_models.py`, `cv_runner.py`, `cv_search.py`, `run_experiments_day04.py` | Fixed candidate definitions, fold-local Pipeline, search/selection и Day04 CLI |
+| `models/error_analysis.py`, `confusion.py`, `failure_cases.py` | Alignment, validation matrices, deterministic annotated examples |
+| `models/final_evaluation.py`, `run_error_analysis_day05.py` | Read-only completed-cache loader отдельно от первого final run; report-only CLI |
+| `models/inference_artifact.py`, `inference_consistency.py`, `predict.py` | Explicit build/reuse/load; отдельный parity runner; typed Python API и CSV CLI |
+
+Точные CLI/import paths, входы/выходы и связь day docs/notebooks —
+[docs/day07.md](docs/day07.md). Source data/model/report binaries не получают
+новых Git tracking rules. В `reports/` tracked только существующие
+`day03/observations.md` и `day04/observations.md`; остальные generated outputs
+local/ignored. Missing outputs требуют своих явных preparation steps;
+completed final cache не пересоздаётся автоматически.
+
+Reusable logic хранится в `src/`, а notebooks вызывают её, показывают реальные
+данные/формы и объясняют результат. Training entrypoints вызывают fit явно;
+ordinary `load_bundle`/predict не обучают модель и не требуют dataset/reports.
+Нельзя переносить modules ради косметики: preprocessing/source checksums входят
+в artifact provenance. Dataclasses и small functions поддерживают явные
+контракты без общего config framework. Полный runtime для ML использует
+`requirements-day03.txt`, dev tooling устанавливается дополнительно; исходный
+`requirements.txt` не является проверенным pinned окружением mini-product.
 
 ## 6. Договорённости для следующих дней
 

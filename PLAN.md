@@ -8,8 +8,8 @@ Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
 Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
-D7-01 выполнен 2026-10-25; D7-02…D7-07 pending.
-Следующий исполнимый пункт — D7-02.
+D7-01…D7-02 выполнены 2026-10-25; D7-03…D7-07 pending.
+Следующий исполнимый пункт — D7-03.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1849,7 +1849,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
 Один ID — один самостоятельно исполнимый запрос. Последовательность:
 **D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
-D7-01 выполнен 2026-10-25; D7-02…D7-07 остаются pending.
+D7-01…D7-02 выполнены 2026-10-25; D7-03…D7-07 остаются pending.
 
 Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
 цель → краткая теория → вызов существующего API → реальные outputs →
@@ -1925,7 +1925,7 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ### D7-02 — понятная структура и навигация проекта
 
-- [ ] Актуализировать карту проекта и устранить конкретные ошибки навигации.
+- [x] Актуализировать карту проекта и устранить конкретные ошибки навигации.
 - Зависит от D7-01. Вход: inventory/найденные расхождения.
 - Обновить SPEC §5: реальные роли `data/`, `features/`, `models/`, notebooks,
   configs, requirements и generated outputs; убрать описание принятых modules
@@ -1943,7 +1943,33 @@ outputs, kernels и source/config/data/model hashes ради косметики.
   Общий notebook/type/diff checkpoint, без новых tests для документации.
 - Самопроверка: почему runtime source hash делает безобидный перенос module
   потенциально несовместимым с frozen artifact?
-- Свидетельство: pending.
+- Свидетельство (2026-10-25): SPEC §3 описывает существующие tracked raw ZIP/
+  source.json и ignored производные CSV; §5 содержит принятую структуру modules,
+  notebooks, configs/runtime, entrypoints и storage exceptions. В §2 заготовки
+  отделены от принятых реализаций; исторические stage contracts сохранены.
+- docs/day07.md дополнен картой ролей/entrypoints, связями всех day docs и
+  notebooks, output paths со storage/инструкциями получения. docs/day01.md
+  исправляет raw Git storage и актуальное место temporary type exports.
+  README, source/module names/CLI и artifact paths не менялись.
+- Day07 notebook дополнен D7-02 section: цель/теория, 2 code cells с проверками
+  docs/notebooks/import locations/Git storage, outputs, интерпретация/self-check.
+  Проверены 7 day docs, 7 notebooks, 7 source locations и 12 representative
+  artifact paths; 26 Python source hashes неизменны. В SPEC/day docs сверены
+  все 66 relative links на tracked targets/directories, broken links нет.
+- Type gate: 53 project files, 79 notebook modules (7 sequential exports +
+  72 cell-boundary), 0 errors/warnings. CLI Pyright не полный VS Code Pylance.
+  Целевой `tests/test_check_types.py`: 5 passed за 6.45 s; новых tests для docs
+  не добавлялось. Compileall src/tests/scripts и diff check passed.
+- Два guarded clean kernels (root/notebooks): по 7/7 code cells, 0 errors,
+  2.208/2.202 s; по 3 probes заблокированы, 0 запрещённых calls далее. Первый
+  guard блокировал stdin pipe Git; runner уточнён для FIFO и двух read-only
+  Git commands, без ослабления file/model/network guards. Evidence обоих
+  запусков и исходного guard failure сохранены в `.cache/day07-d702/`.
+- SHA-256 всех 142 защищённых files (включая source/tests/scripts/configs/
+  data/reports/model pair/прежние notebooks/README) и Git index неизменны.
+  Fit/predict/transform/score/CV/download/final-run не выполнялись. Full suite,
+  training replay, fresh install и новый demo не запускались.
+- D7-01 закоммичен как `1ec0dac`; изменения D7-02 оставлены без commit.
 
 ### D7-03 — итоговые результаты, error analysis и ограничения
 
@@ -2072,13 +2098,13 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ## Шаблон запроса для следующего чата
 
-Day06 принят; D7-01 завершён, первый pending пункт — D7-02:
+Day06 принят; D7-01…D7-02 завершены, первый pending пункт — D7-03:
 
-> Выполни только D7-02 из PLAN.md по SPEC §12: актуализируй карту проекта,
-> Git storage и навигацию по результатам D7-01 в docs/day07.md. Сохрани source,
-> entrypoints и artifact paths. Обнови Day07 notebook и PLAN с проверенными
-> свидетельствами, выполни общий checkpoint. README и следующие ID не начинай,
-> fit/predict/CV/download/final evaluation не запускай, commit не делай.
+> Выполни только D7-03 из PLAN.md по SPEC §12: собери docs/day07_results.md
+> из проверенных Day03–Day05 artifacts, раздели CV/validation/frozen test,
+> опиши сохранённый error analysis и ограничения. Обнови Day07 notebook,
+> docs/day07.md и PLAN, выполни общий checkpoint. Не запускай новый fit/predict,
+> CV/download/final evaluation; README и следующие ID не начинай, commit не делай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

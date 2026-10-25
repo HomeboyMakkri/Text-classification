@@ -3,10 +3,12 @@
 ## D7-01: результат и границы
 
 Проверено 2026-10-25, после принятого D6-08. D7-01 завершает аудит входов,
-а не финализацию всего mini-product. D7-02…D7-07 остаются pending.
+а не финализацию всего mini-product. Результат D7-02 — в карте ниже;
+D7-03…D7-07 остаются pending.
 Контракт — [SPEC §12](../SPEC.md), порядок — [PLAN](../PLAN.md).
-Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb), один раздел
-D7-01 и пять code cells с сохранёнными outputs.
+Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb).
+Исходный раздел D7-01 содержит пять code cells; D7-02 добавляет две code cells
+для проверки путей/import locations и фактического Git storage.
 
 Вызваны существующие `load_inference_reference(ROOT)` и
 `load_bundle(ROOT / "models/day06/sentiment_bundle.joblib")` из
@@ -80,6 +82,59 @@ required inventory содержит 10 tracked files; остальные 43 — 
 Из 10 optional paths два tracked, восемь local/ignored. Generated bundle,
 processed CSV и final cache не включены в Git; текущая рабочая копия их имеет.
 
+## D7-02: карта проекта и навигация
+
+Актуализировано 2026-10-25. [SPEC §3/§5](../SPEC.md) теперь описывает текущие
+Git storage и реализованные modules. Исходники, module/CLI names и artifact
+paths не переносились. [Day01 docs](day01.md) уточняют raw tracking и фактическое
+место временных type exports; исторические результаты приёмки сохранены.
+
+| Где | Роль и основные files |
+| --- | --- |
+| [data modules](../src/finnews_sentiment/data/) | Schema/loading/preparation; `baseline_config.py`, `split_data.py`, `experiment_splits.py` задают configs/group boundaries |
+| [features](../src/finnews_sentiment/features/) | `preprocess.py`: deterministic minimal-v1; `labels_duplicates.py`: mapping и duplicate/conflict policy |
+| [models](../src/finnews_sentiment/models/) | Training, fixed CV, error/final-cache readers, bundle build/load и prediction adapters; точные entrypoints ниже |
+| [visualization](../src/finnews_sentiment/visualization/eda.py) | Reusable EDA summaries/plots |
+| [configs](../configs/) | Dataset source/checksum, baseline/split policy, fixed experiment candidates |
+| [notebooks](../notebooks/) | Учебные callers с реальными outputs; нет отдельной версии training/inference logic |
+| [tests](../tests/) / [type gate](../scripts/check_types.py) | Offline contract tests и Python/notebook static checks |
+| [requirements-day03.txt](../requirements-day03.txt) / [requirements-dev.txt](../requirements-dev.txt) | ML runtime (включает [Day01 pins](../requirements-day01.txt)) / дополнительные dev tools |
+
+Source tree не содержит HTTP service/UI/deployment. Корневой
+[README](../README.md) остаётся исходным материалом и вводной Day01 до D7-05.
+`requirements.txt` — broad curriculum list, не проверенный pinned runtime.
+
+| День | Инструкция | Notebook | Реализованный вход в `finnews_sentiment` |
+| --- | --- | --- | --- |
+| 01 | [day01.md](day01.md) | [day01_eda](../notebooks/day01_eda.ipynb) | [data.prepare_phrasebank](../src/finnews_sentiment/data/prepare_phrasebank.py), [visualization.eda](../src/finnews_sentiment/visualization/eda.py) |
+| 02 | [day02.md](day02.md) | [day02_preprocessing](../notebooks/day02_preprocessing.ipynb) | [data.prepare_day02](../src/finnews_sentiment/data/prepare_day02.py) |
+| 03 | [day03.md](day03.md) | [day03_baseline](../notebooks/day03_baseline.ipynb) | CLI [models.train_model](../src/finnews_sentiment/models/train_model.py) → [run_baseline](../src/finnews_sentiment/models/run_baseline.py) |
+| 04 | [day04.md](day04.md) | [day04_experiments](../notebooks/day04_experiments.ipynb) | [models.run_experiments_day04](../src/finnews_sentiment/models/run_experiments_day04.py) |
+| 05 | [day05.md](day05.md), [annotations](day05_failure_cases.csv) | [day05_error_analysis](../notebooks/day05_error_analysis.ipynb) | [models.run_error_analysis_day05](../src/finnews_sentiment/models/run_error_analysis_day05.py); read-only `load_final_evaluation` в [final_evaluation.py](../src/finnews_sentiment/models/final_evaluation.py) |
+| 06 | [day06.md](day06.md), [demo input](day06_examples.csv) | [day06_inference](../notebooks/day06_inference.ipynb) | [models.inference_artifact](../src/finnews_sentiment/models/inference_artifact.py), [inference_consistency](../src/finnews_sentiment/models/inference_consistency.py), [predict](../src/finnews_sentiment/models/predict.py) |
+| 07 | [day07.md](day07.md), [PLAN](../PLAN.md) | [day07_review](../notebooks/day07_review.ipynb) | Read-only вызовы тех же accepted loaders; текущие sections D7-01/D7-02 |
+
+### Где находятся outputs и как их получить
+
+| Paths | Git storage | Явный источник / подготовка |
+| --- | --- | --- |
+| `data/raw/FinancialPhraseBank-v1.0.zip`, `data/raw/source.json` | Уже tracked exception | Immutable source; проверка SHA-256/конверсия по [Day01](day01.md). Если архив отсутствует, download — отдельный `--download` |
+| `data/interim/financial_phrasebank_75agree.csv`, `reports/day01/` | Local/ignored | `data.prepare_phrasebank` создаёт canonical CSV; EDA notebook/инструкция [Day01](day01.md) создаёт reports |
+| `data/processed/financial_phrasebank_75agree.csv`, `reports/day02/` | Local/ignored | Явный `data.prepare_day02`, prerequisite — canonical source; [Day02](day02.md) |
+| `data/processed/day03/splits.csv`, `reports/day03/` | Local/ignored, кроме tracked `observations.md` | `models.train_model --config configs/train_baseline.json`; fit/запись по [Day03](day03.md) |
+| `reports/day04/` | Local/ignored, кроме tracked `observations.md` | Fixed training/CV runner `models.run_experiments_day04`; [Day04](day04.md) |
+| `reports/day05/` | Local/ignored | Для чтения нужен принятый полный frozen snapshot с совместимыми inputs/runtime. Первая историческая evaluation и report-only flow описаны в [Day05](day05.md); reader не восстанавливает missing/partial cache |
+| `models/day06/sentiment_bundle.joblib`, `models/day06/manifest.json` | Local/ignored | Trusted pair либо явный build при наличии frozen Day02–Day05 references; [Day06](day06.md) и SPEC §11 |
+| `reports/day06/consistency.json` | Local/ignored | Отдельный consistency runner проверяет parity, вызывает predict и пишет report по [Day06](day06.md); в D7-02 не запускается |
+| `reports/day06/demo_predictions.csv` | Local/ignored | CSV CLI на tracked `docs/day06_examples.csv` по [Day06](day06.md); output не перезаписывается автоматически |
+| `.cache/day07-checkpoints/`, `.cache/day07-d702/` | Local/ignored | Evidence текущих проверок; не обязательный input notebook и не источник frozen ML results |
+
+Ссылки навигации ведут на tracked source/docs/notebooks. Generated пути явно
+помечены как local/ignored; их наличие в текущем checkout не гарантируется
+одним clone. Raw archive и две observations — проверенные существующие
+исключения. Notebook D7-02 сверяет фактические paths и Git storage без
+preparation/training/inference; source hashes сохраняются.
+
 ## Runtime и ключевые fingerprints
 
 | Component | Verified version |
@@ -102,12 +157,12 @@ accepted snapshot, не обещание одинаковых pickle bytes ме�
 
 1. **Raw ZIP и source metadata уже tracked.** `git ls-files --stage -- data`
    показывает `data/raw/FinancialPhraseBank-v1.0.zip` и `data/raw/source.json`.
-   `.gitignore` с `/data/` не исключает ранее tracked files. SPEC §3 описывает
-   архив как не включённый в Git: описание расходится с текущим index.
-   D7-01 фиксирует фактическое состояние; archive/index не менялись.
-   Согласование документации относится к D7-02.
+   `.gitignore` с `/data/` не исключает ранее tracked files. D7-01 выявил
+   расхождение с прежним SPEC §3; **D7-02 исправил описание** в SPEC/Day01 docs.
+   Archive/index не менялись.
 2. README вводно описывает только Day01; итоговый README — D7-05.
-3. SPEC §5 сохраняет историческую карту с templates. Актуализация — D7-02.
+3. Историческая карта templates SPEC §5 **актуализирована D7-02** по принятой
+   реализации. Исторические stage contracts и evidence не переписывались.
 4. Day06 demo/consistency сохранены, но новый demo и полноценное воспроизведение
    training/inference здесь не запускаются: D7-04 и D7-06.
 
@@ -176,6 +231,42 @@ venv/bin/jupyter nbconvert --to notebook --execute --ExecutePreprocessor.kernel_
 новое окружение/установка packages здесь не проверялись. Полный pytest suite,
 новое training replay и inference demo не запускались: их границы заданы
 D7-04/D7-06/D7-07. Предыдущие notebooks и пользовательские kernels не менялись.
+
+## Проверки D7-02
+
+| Проверка | Фактический результат 2026-10-25 |
+| --- | --- |
+| Навигация | 66 относительных links в SPEC и day docs разрешаются в tracked files/directories |
+| Notebook navigation / Git storage | 7 docs, 7 notebooks, 7 module locations; 12 representative artifact paths согласованы с Git |
+| Sources / protected snapshot | 26 Python source modules и все 142 защищённых files неизменны по SHA-256; Git index неизменен |
+| CLI type gate | 53 project files; 7 sequential + 72 cell-boundary = 79 notebook modules; 0 errors/warnings |
+| Целевые offline tests | `tests/test_check_types.py`: 5 passed, 6.45 s |
+| Clean kernel, cwd=root | 7/7 code cells, 0 errors, 2.208 s |
+| Clean kernel, cwd=notebooks | 7/7 code cells, 0 errors, 2.202 s |
+| Compileall / diff check | passed |
+
+Исполнены `venv/bin/python scripts/check_types.py`,
+`venv/bin/python -m pytest tests/test_check_types.py -v`,
+`venv/bin/python -m compileall -q src tests scripts` и `git diff --check`.
+Новых tests для Markdown не добавлялось. Tests type gate проверяют реальные
+diagnostics/coverage на fixtures; полный pytest suite в D7-02 не запускался.
+CLI Pyright не является полным запуском Pylance внутри VS Code.
+
+Notebook выполнен через nbclient с теми же model/build/CV/final-run/network
+guards, что D7-01. В каждом kernel три probes остановлены mocks; далее
+0 запрещённых вызовов. Для Git navigation runner разрешает только read-only
+`git ls-files -z` и `git check-ignore --stdin`, а также их pipe descriptors.
+Первый запуск guard ошибочно блокировал stdin pipe как запись файла; после
+уточнения проверки FIFO оба запуска прошли. Guard всё ещё запрещает запись
+по filesystem paths; hash/index snapshots подтверждают неизменность входов.
+Никаких изменений production modules для прохождения проверки не было.
+
+Локальные evidence — `.cache/day07-d702/`: `before.json`, `index-before.txt`,
+`links.json`, `types.log`, `pytest.log`, `execution.json`, `execution.log`,
+`execution-initial.log`, `from-root.ipynb`, `from-notebooks.ipynb`,
+`execute_checkpoint.py`. Они не являются inputs обычного Run All notebook.
+Full README run, training replay, новое demo и final evaluation не выполнялись;
+следующие D7-03…D7-07 pending. D7-01 закоммичен отдельно как `1ec0dac`.
 
 ## Приложение: inventory SHA-256 на 2026-10-25
 

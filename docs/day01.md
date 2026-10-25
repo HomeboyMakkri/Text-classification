@@ -38,9 +38,11 @@ venv/bin/jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocess
 ```
 
 Получите результат в `reports/day01/`: качество данных, классы, длины, два PNG,
-наблюдения и версии runtime. Raw data и reports исключены из Git; проверенный
-notebook с outputs сохраняется в репозитории. Успешный запуск не зависит от
-результатов предыдущего kernel.
+наблюдения и версии runtime. Generated CSV и Day01 reports local/ignored;
+raw ZIP и `data/raw/source.json` уже tracked в текущем checkout, несмотря на
+`/data/` в `.gitignore` (уточнение D7-02, [карта проекта](day07.md)).
+Проверенный notebook с outputs сохраняется в репозитории. Успешный запуск
+не зависит от результатов предыдущего kernel.
 
 Проверка типов (Pyright + pandas-stubs):
 
@@ -49,9 +51,12 @@ venv/bin/python -m pip install -r requirements-dev.txt
 venv/bin/python scripts/check_types.py
 ```
 
-Команда проверяет `src`, `tests`, `scripts` и код всех notebooks в порядке ячеек.
-Временные `.py` создаются в `.cache/` и удаляются после проверки. Диагностика
-показывает имя notebook и строку экспорта; комментарии отмечают номера ячеек.
+Команда проверяет `src`, `tests`, `scripts` и код всех notebooks: sequential
+exports и отдельные cell-boundary modules. Временные `.py` создаются в
+директории `notebook-types-*` без начальной точки в корне и удаляются после проверки;
+скрытые директории Pyright может пропускать. Gate проверяет filesAnalyzed.
+Диагностика показывает имя notebook и строку экспорта; комментарии отмечают
+номера ячеек. CLI Pyright не является полным запуском Pylance внутри VS Code.
 Для Pylance выберите interpreter `venv/bin/python` через **Python: Select Interpreter**.
 Notebook kernel тоже должен использовать это окружение.
 
