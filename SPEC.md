@@ -8,6 +8,7 @@
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
 Day01–Day06 завершены; **day06** принят 2026-10-19 по §11 (D6-01…D6-08).
+Day07 спланирован в §12 и PLAN D7-01…D7-07; реализация и приёмка pending.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -131,7 +132,8 @@ requirements.txt                       # original broad curriculum dependencies
 - Day06: один bundle включает preprocessing contract, vectorizer, classifier, class order,
   provenance, versions и config. Inference не делает fit и совпадает с training transform.
   Точный контракт — §11; текущий API возвращает label ID/name без probability/score.
-- Day07: runnable README, итоговая таблица, demo, ограничения и полный повторный запуск.
+- Day07: runnable README, итоговая таблица, demo, ограничения и проверка команд
+  по §12; training воспроизводится отдельно, final test читается из frozen cache.
 
 Точные API последующих дней уточняются перед реализацией. Тональность предложения
 не является прогнозом доходности; историческая выборка не доказывает работу на live news.
@@ -1126,3 +1128,157 @@ model pair и Day06 demo/report hashes неизменны. Real build/serializat
 используют evidence D6-02/D6-03, повторная приёмка — checked reuse. Фактические
 команды, runtime, hashes, ограничения и Day07 handoff — `docs/day06.md`.
 CLI Pyright не является полным VS Code Pylance. Day07/итоговый README pending.
+
+## 12. Контракт day07 — финализация classification mini-product
+
+### Цель, входы и границы
+
+Реализовать `classification_day07.txt`: понятная структура, итоговый README,
+demo, краткое сравнение baseline/лучшего варианта и error analysis, проверенный
+запуск по инструкции и явные ограничения. Prerequisite — D6-08 и handoff
+`docs/day06.md`. Порядок D7-01…D7-07 задан в PLAN; каждый ID выполняется
+отдельно с checkpoint в `notebooks/day07_review.ipynb`.
+При планировании меняются только SPEC/PLAN; notebook, README и implementation
+создаются/обновляются при выполнении соответствующих ID.
+
+Входы: принятые Day01–Day06 docs/notebooks, configs, локальные processed data,
+Day03 split/metrics, Day04 CV/selection/validation artifacts, completed Day05
+final cache и error analysis, Day06 bundle/manifest/consistency и demo files.
+Отсутствие ignored artifact — явная недостающая предпосылка; наличие checkout
+не означает наличие данных или готовой модели. Аудит не восстанавливает их
+автоматически и не запускает training/download/final evaluation.
+
+Day07 завершает существующий workflow. Не менять `minimal-v1`, class mapping
+`0=negative, 1=neutral, 2=positive`, seed 42, split/IDs/order, параметры,
+frozen candidate `linear_svc` или fit policy `day03_train_only`. Не выполнять
+новый search, подгонку demo или модели по ответам, refit на validation/test,
+новый test transform/predict/score. Идеи из ошибок остаются будущими гипотезами.
+HTTP API, UI, deployment, новые модели и общий orchestration framework вне scope.
+
+### Структура и документация (D7-01…D7-02)
+
+Сохранить действующие entrypoints и пути artifacts; улучшение структуры означает
+актуальную карту проекта, разделение reusable logic / notebooks / docs /
+configs / generated outputs и исправление конкретных устаревших ссылок.
+Не переносить modules ради косметики: source hashes входят в frozen provenance.
+Исходные `classification_*.txt` и блок материалов задания в README сохраняются.
+Итоговую инструкцию разместить перед этим блоком. SPEC §5 актуализируется
+по существующей реализации; исторические свидетельства PLAN не переписываются.
+
+`docs/day07.md` хранит карту входов/выходов, зависимости команд, инструкции
+воспроизведения и фактические свидетельства. Перечислить, что tracked, а что
+локальное/ignored; данные и model binaries не добавлять в Git ради запуска.
+Изменения production code допустимы только для конкретного дефекта,
+блокирующего согласованный запуск, с содержательным pytest regression.
+
+### Сводка качества, error analysis и ограничения (D7-03)
+
+`docs/day07_results.md` — tracked краткий итог с относительными путями к
+источникам, их SHA-256 и датой проверки. Числа брать из проверенных artifacts,
+не из памяти или outputs старого kernel. Использовать существующие validators;
+в частности, `load_final_evaluation` проверяет completed cache без обучения
+и нового test predict. Сводка не запускает `run_final_evaluation`.
+
+Разделять таблицы/колонки по протоколу:
+
+- Day03 validation: Dummy и LogisticRegression baseline, N/support,
+  accuracy/macro F1; фиксированные три класса.
+- Day04 train-only CV: все кандидаты, mean/std macro F1 и правило выбора;
+  три направления улучшения, без смешивания CV и validation scores.
+- Day04 validation: выбранный LinearSVC и baseline на тех же строках,
+  absolute/relative macro F1 delta по полной точности до округления.
+- Day05 final test: только frozen выбранная модель, N/support, accuracy,
+  macro F1 и per-class metrics. У baseline/Dummy нет test evaluation:
+  оставлять «не оценивался», не считать её ради таблицы.
+
+Краткий error analysis опирается на сохранённые validation confusion matrices,
+`docs/day05_failure_cases.csv` и проверенные annotations. Counts сопровождать
+denominators, различать строки и duplicate groups; наблюдения, интерпретации
+и будущие гипотезы не выдавать за доказанную причинность. Test/validation —
+разные строки, их разница не paired improvement. Std трёх folds не confidence
+interval; один holdout не доказывает статистическое превосходство.
+
+Ограничения: англоязычные финансовые предложения и agreement subset,
+дисбаланс и minority recall, малый единственный split, возможный domain/time
+shift, bag-of-ngrams и ограниченное понимание отрицаний/сравнений/контекста,
+OOV и отсутствие probabilities у LinearSVC. Demo без labels не измеряет
+качество. Тональность не прогноз доходности или торговая рекомендация.
+Указать trusted-local-only joblib и ограничения совместимости runtime;
+checksum проверяет целостность, но не доверенность источника.
+
+### Demo и итоговый README (D7-04…D7-05)
+
+Переиспользовать восемь unlabeled inputs `docs/day06_examples.csv` и принятые
+outputs `reports/day06/demo_predictions.csv`; не создавать конкурирующий набор.
+Показать raw → clean → label ID/name через `predict_texts` и ту же CSV CLI,
+проверить API/CLI parity и сохранение порядка/duplicates. Если outputs уже есть,
+записывать CLI повтор в новый temporary path и сравнивать, не перезаписывать.
+Все три класса в demo не обязательны; не править фразы ради нужного ответа.
+
+Итоговый README включает задачу, dataset/subset/source/license, class mapping,
+структуру, pinned setup, подготовку данных, training, artifact build/reuse,
+Python API и CSV inference, фактические метрики, error analysis, ограничения,
+проверки и ссылки на notebooks/day docs. Он должен быть самодостаточным для
+первого запуска; подробные протоколы остаются в docs.
+
+Каждая команда указывает cwd, предпосылки, effect (read/fit/write/network),
+выходной путь и поведение повтора. Все пути относительные; существующий `venv/`
+не пересоздавать. Для нового checkout описать создание окружения и установку
+`requirements-day03.txt`, для разработки также `requirements-dev.txt`;
+не рекомендовать broad curriculum `requirements.txt` как проверенный runtime.
+Download — отдельное явное действие. Установку kernel описать до notebook run.
+
+Быстрый inference требует compatible `src/`, runtime, trusted bundle и manifest,
+новый CSV; dataset/configs/reports ему не нужны. README явно объясняет, что
+bundle не хранится в Git: его передают как trusted pair либо собирают явной
+командой при наличии проверенных frozen Day02–Day05 references по §11.
+Ссылка на путь ignored bundle сама по себе не является способом его получения.
+
+Training flow показывает подготовку Day02 → Day03 baseline → Day04 fixed CV.
+Первую историческую final evaluation D5-04 описать отдельно от обычного запуска;
+в проверяемой инструкции Day07 существующий результат загружается read-only.
+При отсутствии/повреждении frozen references/cache выполнение останавливается
+с диагностикой, без автоматического запуска final evaluation или удаления cache.
+Полный lifecycle подтверждается также сохранёнными D5-04/D6-02/D6-03 evidence;
+Day07 не заявляет новое прохождение held-out evaluation с нуля.
+
+### Воспроизведение, notebook и приёмка (D7-06…D7-07)
+
+Проверять команды README в независимых временных рабочих копиях:
+
+1. Inference copy: только нужный `src/`, trusted bundle/manifest и demo input,
+   без dataset/configs/reports. Load/Python/CSV работают без fit/CV/network
+   и чтения training references; результат совпадает с принятым demo.
+2. Training copy: локальные pinned raw inputs, source/configs, отдельные
+   outputs. Явно повторить Day02 preparation, Day03 baseline и Day04 fixed
+   experiments; сверить source IDs, groups, frozen choice и метрики.
+   Это real-data training replay, не новый поиск. Test estimator не получает.
+3. Frozen copy: неизменные принятые Day02–Day05 references и Day06 pair.
+   Проверить read-only final cache, artifact reuse, consistency и demos без
+   fit/test predict. Новый build не нужен: evidence D6-02/D6-03 сохраняется.
+
+Не смешивать freshly written training outputs с frozen references третьей
+копии. Проверить hashes исходного checkout до/после. Повторяемые outputs
+записывать в отдельные пути; пользовательские notebooks/kernels не трогать.
+Логи, exit codes, runtime и сравнения хранить в ignored `.cache/day07-checkpoints/`,
+краткую проверяемую выжимку — в `docs/day07.md`. Использование существующего
+venv с новым cwd не равно новой установке зависимостей; fresh install/network
+помечать как отдельную проверку, если она действительно выполнена.
+
+Day07 notebook содержит семь sections: цель → теория → вызов → результат →
+интерпретация → самопроверка. Он читает реальные проверенные artifacts и
+показывает inference; training replay вынесен в явные команды D7-06 и не
+выполняется при обычном Run All. Для чтения/сверок использовать существующие
+API; если нужна общая новая логика, размещать её в `src/finnews_sentiment/`,
+не дублировать runner в notebook. Outputs законченных sections сохранять.
+
+Приёмка D7-07: шесть задач и все критерии `classification_day07.txt` сопоставлены
+с файлами и evidence; работают документированные training и inference flow,
+сводка и ограничения согласованы с источниками. Полный offline pytest,
+type gate с filesAnalyzed (project/sequential/cell-boundary), compileall и
+`git diff --check`; отдельно real training replay D7-06, inference/cache checks
+и clean-kernel Day07 notebook из корня и `notebooks/` без fit/CV/download/
+final-run/test predict. Предыдущие notebooks повторно без причины не выполнять.
+CLI Pyright не является полным VS Code Pylance. Неисполненные проверки и
+ограничения окружения записывать явно; незакрытые обязательные checks оставляют
+Day07 pending. Планирование не является выполнением/приёмкой Day07.

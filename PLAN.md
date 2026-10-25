@@ -7,7 +7,8 @@ Day03: D3-01…D3-07 завершены 2026-10-14.
 Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
-Day06 принят по SPEC §11. Следующий шаг — детализировать Day07 roadmap.
+Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
+D7-01…D7-07 pending. Следующий исполнимый пункт — D7-01.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1842,20 +1843,214 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
   ограничения и handoff Day07. SPEC status обновлён. README/Day07 не менялись;
   Day07 roadmap pending и требует детализации до реализации. Commit не создан.
 
-## Roadmap day07
+## Day07 — финализация classification mini-product
 
-| День | Подзадачи (все pending) | Результат / notebook |
-| --- | --- | --- |
-| 07 | D7-01 end-to-end review; D7-02 runnable README; D7-03 summary/limitations; D7-04 clean-environment acceptance | reproducible mini-product, day07_review.ipynb |
+Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
+Один ID — один самостоятельно исполнимый запрос. Последовательность:
+**D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
+Все пункты ниже pending: сейчас изменены только SPEC/PLAN, реализация не начата.
+
+Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
+цель → краткая теория → вызов существующего API → реальные outputs →
+интерпретация → самопроверка. После каждого ID обновить notebook и PLAN,
+исполнить готовые sections в чистых kernels из корня и `notebooks/`.
+Notebook читает artifacts и выполняет inference; real training replay D7-06
+запускается отдельными явными командами, без fit в обычном Run All.
+
+Для изменённых Python/code cells обязательны
+`venv/bin/python scripts/check_types.py`, подходящие pytest checks, compileall
+и diff check.
+Для одних docs не нужны новые tests; не писать tests, повторяющие Markdown.
+Разделять offline suite, реальные artifacts, training replay и notebook execution.
+Записывать commands/exit codes/counts/runtime и ограничения; type gate показывает
+filesAnalyzed project/sequential/cell-boundary, CLI Pyright не полный VS Code
+Pylance. Если обязательная проверка недоступна, ID не закрывать.
+
+Во всём Day07 сохранять frozen contracts. Не запускать `run_final_evaluation`
+или новый test transform/predict/score; final cache читать через
+`load_final_evaluation`. Missing/partial artifacts диагностировать без
+автовосстановления и удаления. Training D7-06 разрешён только в изолированной
+копии на прежнем train с прежними configs; никакого нового поиска/подбора.
+Не обновлять runtime и не пересоздавать текущий venv. Не менять пользовательские
+outputs, kernels и source/config/data/model hashes ради косметики.
+
+### D7-01 — аудит handoff и начальный notebook checkpoint
+
+- [ ] Подтвердить готовность входов Day07 и создать read-only обзор workflow.
+- Зависит от D6-08. Вход: SPEC §12, docs Day01–Day06, текущая структура,
+  configs, accepted local references и bundle. Сначала status/diff.
+- Составить inventory: entrypoints, данные, split/metrics/CV/selection,
+  final cache, bundle/manifest, consistency и demo inputs/outputs;
+  различить tracked/ignored, обязательные/опциональные artifacts.
+- Проверить frozen reference и bundle существующими validators без fit/predict/
+  network/write; зафиксировать paths/SHA-256/runtime и явные missing inputs.
+  Не считать один `exists()` доказательством согласованности provenance.
+- Выход: начальный `docs/day07.md` с inventory, зависимостями запуска и
+  наблюдаемыми несоответствиями; notebook с root/src setup и разделом D7-01.
+  Не править README, production modules или следующие пункты.
+- Проверка: read-only validation inputs/bundle; hashes до/после неизменны;
+  type gate, уместные существующие checks и два clean-kernel запуска.
+- Notebook: схема data → preprocessing → train/CV → frozen evaluation →
+  inference и реальные checked metadata без нового model call.
+- Самопроверка: почему clone не содержит готовой модели? Чем проверка cache
+  отличается от новой test evaluation?
+- Свидетельство: pending; записать фактические результаты при выполнении.
+
+### D7-02 — понятная структура и навигация проекта
+
+- [ ] Актуализировать карту проекта и устранить конкретные ошибки навигации.
+- Зависит от D7-01. Вход: inventory/найденные расхождения.
+- Обновить SPEC §5: реальные роли `data/`, `features/`, `models/`, notebooks,
+  configs, requirements и generated outputs; убрать описание принятых modules
+  как действующих placeholders. Исторические этапы/свидетельства сохранить.
+- Дополнить `docs/day07.md` короткой картой entrypoints и input/output paths,
+  связать day docs и notebooks. Исправлять лишь релевантные устаревшие ссылки.
+  Сохранять module names/CLI/artifact paths и исходные материалы задания;
+  не переставлять files без конкретной необходимости.
+- Выход: проверенная карта/навигация, раздел D7-02 notebook с реальными путями
+  и объяснением reusable logic против учебных callers.
+- Проверка: относительные ссылки на tracked files разрешаются; ссылки на ignored
+  outputs помечены и имеют инструкцию получения; imports/entrypoints неизменны.
+  Общий notebook/type/diff checkpoint, без новых tests для документации.
+- Самопроверка: почему runtime source hash делает безобидный перенос module
+  потенциально несовместимым с frozen artifact?
+- Свидетельство: pending.
+
+### D7-03 — итоговые результаты, error analysis и ограничения
+
+- [ ] Собрать tracked сводку качества с проверенными источниками чисел.
+- Зависит от D7-02. Вход: checked Day03–Day05 metrics/CV/selection,
+  validation error artifacts/annotations и Day06 limitations.
+- Создать `docs/day07_results.md`: Dummy/baseline validation, все Day04 CV
+  кандидаты, selected validation и отдельный frozen test результат. Для чисел
+  указать split, N/support, source paths/SHA-256 и дату проверки.
+- Показать absolute/relative validation macro F1 delta от полной точности,
+  правило CV выбора и три направления улучшения; не сравнивать CV score
+  с validation как одинаковый протокол. Baseline test — «не оценивался».
+- Кратко описать сохранённые confusion pairs и validation failure cases
+  с denominators/duplicate groups. Новые test примеры не анализировать.
+- Перечислить ограничения по SPEC §12; наблюдения и гипотезы разделить,
+  не обещать live quality, probabilities или statistical significance.
+- Выход: results doc, ссылки в docs/day07.md, раздел D7-03 notebook:
+  реальные таблицы, формы `(N, columns)` / `(N, V)` / `(N,)` / `(3, 3)`,
+  интерпретация macro F1 и class imbalance.
+- Проверка: сверка чисел и округления с validators/artifacts, cache reuse
+  без fit/test predict, hashes защищённых inputs неизменны; общий checkpoint.
+- Самопроверка: почему +delta на validation не означает такой же прирост
+  на test? Почему высокий accuracy может сочетаться с низким negative recall?
+- Свидетельство: pending.
+
+### D7-04 — единое demo поверх готового inference
+
+- [ ] Подготовить финальную демонстрацию Python API и CSV CLI.
+- Зависит от D7-03. Вход: существующие восемь `docs/day06_examples.csv`,
+  bundle/manifest и `reports/day06/demo_predictions.csv`.
+- Переиспользовать inputs, не менять тексты и не вводить labels/quality metrics.
+  Показать batch Python call и CSV command с реальными raw/clean/predictions,
+  mapping и интерпретацией OOV/отрицаний/сравнений без коррекции по ответам.
+- CLI output направить в новый temporary path: `predict_for_file` не заменяет
+  существующий output. Сверить с принятым demo и Python API, сохранить порядок.
+- Выход: demo section `docs/day07.md` с копируемыми commands/I/O/errors,
+  раздел D7-04 notebook; использовать существующий входной CSV Day06
+  для пользовательского demo. Dataset не заменять synthetic данными.
+- Проверка: API/CLI parity, повторяемость и fitted state/input hashes;
+  без fit/CV/network/test predict; общий notebook/type checkpoint.
+  Не добиваться искусственно predictions всех трёх классов.
+- Самопроверка: почему unlabeled demo проверяет работу продукта, но не macro F1?
+- Свидетельство: pending.
+
+### D7-05 — самодостаточный итоговый README
+
+- [ ] Заменить вводную о Day01 актуальной инструкцией mini-product.
+- Зависит от D7-04. Вход: проверенная структура, results doc и demo commands.
+- Перед сохранённым исходным блоком задания написать: задача/классы, dataset
+  source/subset/license, структура, runtime/setup, data preparation, training,
+  bundle build/reuse, Python/CSV inference, результаты/errors/ограничения,
+  quality checks и links на docs/notebooks. Исходный блок не переписывать.
+- Setup для нового checkout: pinned `requirements-day03.txt`, дополнительно
+  `requirements-dev.txt` для разработки; текущий venv не пересоздавать.
+  Download и kernel registration описать отдельными действиями.
+- Для commands указать cwd, prerequisite inputs, outputs, разрешённые effects
+  и повтор. Быстрый inference объясняет получение trusted bundle/manifest;
+  fresh clone без ignored artifacts не объявлять готовым к predict.
+- Отделить воспроизводимый Day02→Day03→Day04 training от чтения frozen Day05
+  и Day06 build/reuse. Первая final evaluation — отдельный исторический этап,
+  не команда обычного Day07 quickstart или автоматический fallback.
+- Выход: итоговый README с краткими реальными метриками/ограничениями и
+  подробностями по links; раздел D7-05 notebook с картой documented commands.
+- Проверка: CLI signatures/relative paths/dependencies по текущему коду,
+  links и numerical consistency с D7-03. Проверка исполнения всех команд
+  остаётся D7-06; здесь её не объявлять выполненной. Общий checkpoint.
+- Самопроверка: что нужно для ordinary inference и что дополнительно для
+  training/artifact build? Почему broad requirements не frozen runtime?
+- Свидетельство: pending.
+
+### D7-06 — проверка запуска по README в изолированных копиях
+
+- [ ] Исполнить документированные flows с отдельными outputs и evidence.
+- Зависит от D7-05. Вход: README, локальные pinned raw inputs, references,
+  модель и совместимый venv. Без network по умолчанию.
+- Создать независимые временные копии, как в SPEC §12:
+  inference (src + bundle/manifest + examples, без data/configs/reports),
+  training (raw + source/configs, новые outputs), frozen reuse (принятые
+  references + bundle). Не переносить свежие training outputs в frozen copy.
+- В inference copy исполнить README Python/CSV snippets; запретить fit,
+  network и чтение training references, сравнить output с принятым demo.
+- В training copy явно выполнить Day02 preparation, Day03 baseline и
+  фиксированный Day04 CV. Проверить splits/IDs/groups/choice/метрики,
+  исключить test из estimator calls. Не выполнять D5-04/new search.
+- В frozen copy проверить read-only final cache, artifact reuse и consistency
+  без fit/CV/network/test predict. Нового build ради приёмки не делать;
+  D6-02/D6-03 остаются evidence train-only build/serialization.
+- Hash snapshots исходных data/configs/reports/model pair до/после должны
+  совпасть; текущие notebooks/outputs/kernels не перезаписывать/не прерывать.
+- Выход: логи/exit codes/runtime/hashes/diffs в `.cache/day07-checkpoints/`,
+  краткий протокол в `docs/day07.md`, исправления README при найденных ошибках,
+  раздел D7-06 notebook, читающий итоги проверки без повторного training.
+- Проверка: все заявленные runnable flows реально исполнены. Использование
+  существующего venv в новом cwd не называть fresh dependency install;
+  отдельно отметить непроверенные install/download/platform сценарии.
+  Дефект production code исправлять с pytest regression/type gate;
+  после исправления повторять затронутую команду. Общий checkpoint.
+- Самопроверка: почему training replay, artifact reuse, demo и final test
+  evaluation — разные свидетельства? Что именно доказывает изоляция?
+- Свидетельство: pending.
+
+### D7-07 — итоговая приёмка mini-product
+
+- [ ] Подтвердить SPEC §12 и все критерии `classification_day07.txt`.
+- Зависит от D7-06. Вход: README/docs, notebook и evidence D7-01…D7-06.
+  Составить acceptance table: структура, README, training
+  и inference, baseline/улучшения/error analysis, demo и limitations →
+  конкретные files/commands/evidence. Использовать D7-06 real training evidence,
+  не повторять его без нового дефекта/изменения.
+- Проверка: полный `venv/bin/python -m pytest tests -v`, type gate,
+  `venv/bin/python -m compileall -q src tests scripts`, `git diff --check`.
+  Counts предыдущих дней не выдавать за текущие measurements.
+- Исполнить весь Day07 notebook в clean kernels из root и notebooks/:
+  семь sections, все переменные определены выше, outputs/self-check сохранены;
+  fit/CV/download/final-run/test predict запрещены. Прежние notebooks
+  повторно без причины не запускать.
+- Сверить source/input/model/final-cache hashes и сводку/README; зафиксировать
+  фактические counts/runtime и limitations в docs/day07.md, PLAN и SPEC status.
+  Не отмечать Day07 принятым при незакрытых обязательных checks.
+- Выход: проверенный mini-product, итоговый notebook и evidence; user-facing
+  результат с diff --stat (включая untracked), один English commit message.
+  Commit/push только по запросу.
+- Самопроверка: какие claims подтверждены real-data run, какие fixtures,
+  какие остаются гипотезами и что ограничивает перенос на новые новости?
+- Свидетельство: pending.
 
 ## Шаблон запроса для следующего чата
 
-Day06: D6-01…D6-08 завершены; Day07 остаётся roadmap и требует детализации:
+Day06 принят; Day07 спланирован, первый pending пункт — D7-01:
 
-> Ознакомься с classification_day07.txt и согласованным handoff docs/day06.md.
-> Детализируй только Day07 в PLAN/SPEC на небольшие самостоятельно исполнимые
-> пункты с dependencies/checks/notebook checkpoints. Покажи промпт только для
-> первого pending пункта. Реализацию Day07 и README пока не начинай.
+> Выполни только D7-01 из PLAN.md по SPEC §12: проверь Day06 handoff и
+> frozen входы, создай docs/day07.md с inventory и начальный
+> notebooks/day07_review.ipynb. Используй read-only validators, не запускай
+> fit/predict/CV/download/final evaluation. Выполни общий checkpoint Day07,
+> запиши фактические свидетельства в PLAN. README и следующие ID не начинай,
+> commit не делай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.
