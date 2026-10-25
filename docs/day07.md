@@ -5,12 +5,13 @@
 Проверено 2026-10-25, после принятого D6-08. D7-01 завершает аудит входов,
 а не финализацию всего mini-product. Результат D7-02 — в карте ниже,
 результаты D7-03 — в [итоговой сводке](day07_results.md).
-D7-04…D7-07 остаются pending.
+D7-04 показывает demo ниже; D7-05…D7-07 остаются pending.
 Контракт — [SPEC §12](../SPEC.md), порядок — [PLAN](../PLAN.md).
 Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb).
 Исходный раздел D7-01 содержит пять code cells; D7-02 добавляет две code cells
 для проверки путей/import locations и Git storage, D7-03 — четыре code cells
-для сводки проверенных saved results.
+для сводки проверенных saved results. D7-04 добавляет три code cells: API,
+TF-IDF/OOV diagnostic и два повтора CSV CLI.
 
 Вызваны существующие `load_inference_reference(ROOT)` и
 `load_bundle(ROOT / "models/day06/sentiment_bundle.joblib")` из
@@ -114,7 +115,7 @@ Source tree не содержит HTTP service/UI/deployment. Корневой
 | 04 | [day04.md](day04.md) | [day04_experiments](../notebooks/day04_experiments.ipynb) | [models.run_experiments_day04](../src/finnews_sentiment/models/run_experiments_day04.py) |
 | 05 | [day05.md](day05.md), [annotations](day05_failure_cases.csv) | [day05_error_analysis](../notebooks/day05_error_analysis.ipynb) | [models.run_error_analysis_day05](../src/finnews_sentiment/models/run_error_analysis_day05.py); read-only `load_final_evaluation` в [final_evaluation.py](../src/finnews_sentiment/models/final_evaluation.py) |
 | 06 | [day06.md](day06.md), [demo input](day06_examples.csv) | [day06_inference](../notebooks/day06_inference.ipynb) | [models.inference_artifact](../src/finnews_sentiment/models/inference_artifact.py), [inference_consistency](../src/finnews_sentiment/models/inference_consistency.py), [predict](../src/finnews_sentiment/models/predict.py) |
-| 07 | [day07.md](day07.md), [results](day07_results.md), [PLAN](../PLAN.md) | [day07_review](../notebooks/day07_review.ipynb) | Read-only вызовы тех же accepted loaders; текущие sections D7-01…D7-03 |
+| 07 | [day07.md](day07.md), [results](day07_results.md), [PLAN](../PLAN.md) | [day07_review](../notebooks/day07_review.ipynb) | Accepted loaders и demo inference; текущие sections D7-01…D7-04 |
 
 ### Где находятся outputs и как их получить
 
@@ -323,6 +324,164 @@ Evidence — `.cache/day07-d703/`: `before.json`, `index-before.txt`, `types.log
 cell, не включённой в сохранённый учебный notebook; документ сформирован из
 этой сводки. Local generation/execution helpers не являются runtime inputs.
 D7-02 закоммичен как `16d88d2`; D7-03 оставлен без commit.
+
+## D7-04: demo Python API и CSV CLI
+
+Используются те же восемь unlabeled inputs [docs/day06_examples.csv](day06_examples.csv)
+и принятые outputs `reports/day06/demo_predictions.csv` (local/ignored).
+Предпосылки: cwd — корень проекта; существующий `venv/` с pinned runtime
+`requirements-day03.txt`; совместимые `src/` и trusted local bundle
+`models/day06/sentiment_bundle.joblib` с соседним `manifest.json`.
+Обычному API/CLI dataset/configs/reports не нужны; saved report нужен только
+для сравнения demo. Получение pair/build отдельно описано в [Day06](day06.md).
+Отсутствующий или несовместимый artifact не запускает обучение автоматически.
+
+### Python API
+
+Команда читает input/pair, предсказывает без fit и выводит все raw/clean/label
+fields. Файлы не записывает:
+
+```bash
+PYTHONPATH=src venv/bin/python - <<'PY'
+from dataclasses import asdict
+from pathlib import Path
+import pandas as pd
+from finnews_sentiment.models.inference_artifact import load_bundle
+from finnews_sentiment.models.predict import predict_texts
+
+inputs = pd.read_csv(Path("docs/day06_examples.csv"), dtype=str, keep_default_na=False)
+bundle = load_bundle(Path("models/day06/sentiment_bundle.joblib"))
+predictions = predict_texts(bundle, inputs["text"].tolist())
+output = pd.DataFrame([
+    {"example_id": example_id, **asdict(prediction)}
+    for example_id, prediction in zip(inputs["example_id"], predictions, strict=True)
+])
+print(output.to_string(index=False))
+PY
+```
+
+API принимает непустой `Sequence[str]` raw texts. Одна строка передаётся как
+`[text]`, а не bare str. Каждый `SentimentPrediction` содержит `text`,
+`text_clean`, integer `pred_label_id` и `pred_label`. Порядок и duplicates
+сохраняются; probabilities/score в выход не добавляются.
+
+### CSV CLI и формат I/O
+
+Создать новый output path, сохранив принятый report. Команда ниже создаёт
+временный каталог; `cmp` проверяет точное совпадение bytes:
+
+```bash
+d704_output_dir=$(mktemp -d)
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.predict \
+  --model models/day06/sentiment_bundle.joblib \
+  --input docs/day06_examples.csv --output "$d704_output_dir/predictions.csv"
+cmp reports/day06/demo_predictions.csv "$d704_output_dir/predictions.csv"
+```
+
+Input `(8, 2)`: `example_id,text`. Output `(8, 5)`:
+`example_id,text,text_clean,pred_label_id,pred_label`. Исходные поля/значения
+сохраняются, в том числе ведущие нули ID. Для чтения таблиц использовать
+`dtype=str, keep_default_na=False`. Mapping:
+`0=negative`, `1=neutral`, `2=positive`. Output должен отсутствовать;
+повтор с тем же output path не перезаписывает его. Notebook использует два
+новых paths внутри `TemporaryDirectory`, сверяет bytes/fields/API и удаляет
+временные файлы при завершении context.
+
+Некорректные schema/CSV, пустой batch/text после очистки, reserved columns
+`text_clean`/`pred_label_id`/`pred_label`, missing/bad bundle, existing output
+и совпадающие input/output paths приводят к error, не скрытому rebuild/overwrite.
+Python API сообщает TypeError/ValueError, файловый adapter — также OSError;
+CLI выводит понятную argparse error с exit 2. Полный контракт и edge cases —
+[Day06](day06.md), existing predict/CSV tests.
+
+### Фактические ответы и интерпретация
+
+| example_id | pred_label_id | pred_label | Наблюдение во входной фразе |
+| --- | --- | --- | --- |
+| 01 | 2 | positive | Rise in operating profit |
+| 02 | 1 | neutral | Net loss после закрытия склада |
+| 03 | 1 | neutral | Дата annual general meeting |
+| 04 | 2 | positive | Did not increase revenue при higher sales volumes |
+| 05 | 2 | positive | Earned less than last year, costs increased |
+| 06 | 1 | neutral | HTML/entity, €4.7 million, deliveries in 2028 |
+| 07 | 1 | neutral | Guidance unchanged |
+| 08 | 1 | neutral | OOV-only text |
+
+Полная raw → clean → actual label таблица сохранена в D7-04 notebook.
+Например, `06`: `<b>Fjord Mosaic Energy</b> ... &amp; ...` превращается
+в `fjord mosaic energy ... & ...`; числа, валюта и содержание сохранены,
+HTML tags удалены, регистр нормализован.
+
+Fitted sparse TF-IDF имеет форму `(8, 5000)`. `08` содержит 0 ненулевых
+features и получает штатный neutral label без нового vocabulary/fit.
+`02`, `04`, `05` показываются без изменения входов по ответам. По этим
+результатам не установлено, какие признаки обусловили решение. Negative
+не появился, и добиваться coverage всех классов заменой фраз не требуется.
+Это smoke demo без ground-truth labels, accuracy/F1 или оценки confidence;
+ограничения отрицаний/сравнений/контекста не становятся доказанной причинностью.
+
+### Проверки D7-04
+
+| Проверка | Фактический результат 2026-10-25 |
+| --- | --- |
+| Python API | 8 records; точный повтор; raw/clean/labels совпали с accepted CSV |
+| Порядок/duplicates | Batch из прежних inputs `01, 01, 08` совпал с соответствующими typed records |
+| CSV CLI | Два отдельных процесса, exit codes `[0, 0]`; все fields и bytes совпали с API/accepted output |
+| TF-IDF/OOV | `(8, 5000)`, у `08` nnz=0; нового fit нет |
+| Fitted state | SHA-256 до/после одинаков; vocabulary/IDF/classes/weights не изменились |
+| Protected snapshot | 145 files и Git index неизменны; demo input/accepted output/model pair сохранены |
+| CLI type gate | 53 project files; 7 sequential + 79 cell-boundary = 86 notebook modules; 0 errors/warnings |
+| Offline tests | Predict/CSV/type-gate targeted suite: 67 passed, 12.61 s |
+| Clean kernel, cwd=root | 14/14 code cells, 0 errors, 5.661 s |
+| Clean kernel, cwd=notebooks | 14/14 code cells, 0 errors, 5.648 s |
+| Compileall / diff check | passed |
+
+Fingerprints текущего accepted snapshot:
+
+| Path / state | SHA-256 |
+| --- | --- |
+| `docs/day06_examples.csv` | `d99af46c74f82bf0fd999a9ea84e4de66e3ed4b7ddb9dbf93f3f6a7a8a9c363c` |
+| `reports/day06/demo_predictions.csv` и оба CLI outputs | `2d689d528e0c4520e5b9e0616cf7206808f959409e83b66ea89d106d5856b6db` |
+| `models/day06/sentiment_bundle.joblib` | `72d5f018ccd5babf9debb597e799ab02a76f8dc551babd216857f9d10cef1300` |
+| `models/day06/manifest.json` | `7b155e9fada9f7d4404801e316d52dc0b0242f52c5de1700aa7a1b62392d1080` |
+| Fitted state до/после | `7623ab0d4d555aed3c73944f59f85acb23e141ada2794fa826c9d7231383b7f7` |
+
+Выполнены `venv/bin/python scripts/check_types.py`,
+`venv/bin/python -m pytest tests/test_day06_predict.py tests/test_day06_csv.py tests/test_check_types.py -v`,
+`venv/bin/python -m compileall -q src tests scripts` и `git diff --check`.
+Existing tests покрывают batch/CSV errors, order/duplicates, no-fit и output
+protection на fixtures. Новых tests для документа не добавлялось; полный suite
+не запускался. CLI Pyright не полный запуск VS Code Pylance.
+
+Первый type gate обнаружил общий `spmatrix` при indexing и private-name import,
+не переходивший через cell module exports. Исправлены только новые cells:
+explicit `csr_matrix`, объявленный `tuple[int, int]` shape и public import alias
+для существующего fitted-state audit helper. Python ML API/production source
+не менялись; итоговый gate проверяет и sequential, и cell-boundary режимы.
+
+Guarded kernels разрешали model calls только на восьми demo clean texts или
+batch `01,01,08`. На один полный Run All: parent — 3 Pipeline predictions
+(8/8/3 строки) и один дополнительный transform для sparse/OOV diagnostic;
+два CLI children — по одному predict на 8 строк. Classifier получает только
+matrices от этих transforms, внутренний decision function не выдаётся как
+probability/confidence. State hash проверяется до/после Pipeline prediction.
+Fit/fit_transform/score/CV/build/save/network/final-run запрещены.
+
+В parent четыре probes (fit/write/network/disallowed predict) остановлены
+до операции, в каждом child дополнительно блокирован training-reference read
+(пять probes). После probes новых запретных вызовов нет. CLI children запускали
+реальный `-m finnews_sentiment.models.predict`; временный `sitecustomize`
+подключал только execution guards. Чтение data/configs/reports в CLI child
+запрещено, запись разрешена только внутри нового temporary demo directory.
+No-overwrite и сохранность accepted reports дополнительно подтверждены hashes.
+
+Evidence — `.cache/day07-d704/`: `before.json`, `index-before.txt`, `demo.json`,
+`execution.json`, `execution.log`, `from-root.ipynb`, `from-notebooks.ipynb`,
+`types.log`, `types-initial.log`, `types-shape-boundary.log`, `pytest.log`,
+`links.json`, `final_audit.json`; execution helpers/guard bootstrap тоже ignored.
+Они не нужны ordinary notebook/API/CLI. Сводка demo/guards из обоих cwd совпала
+полностью. Новых test predictions, training, tuning или quality metrics demo
+не было. README и D7-05 не начаты. D7-03 commit — `739b39a`, D7-04 без commit.
 
 ## Приложение: inventory SHA-256 на 2026-10-25
 

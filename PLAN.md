@@ -8,8 +8,8 @@ Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
 Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
-D7-01…D7-03 выполнены 2026-10-25; D7-04…D7-07 pending.
-Следующий исполнимый пункт — D7-04.
+D7-01…D7-04 выполнены 2026-10-25; D7-05…D7-07 pending.
+Следующий исполнимый пункт — D7-05.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1849,7 +1849,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
 Один ID — один самостоятельно исполнимый запрос. Последовательность:
 **D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
-D7-01…D7-03 выполнены 2026-10-25; D7-04…D7-07 остаются pending.
+D7-01…D7-04 выполнены 2026-10-25; D7-05…D7-07 остаются pending.
 
 Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
 цель → краткая теория → вызов существующего API → реальные outputs →
@@ -2030,7 +2030,7 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ### D7-04 — единое demo поверх готового inference
 
-- [ ] Подготовить финальную демонстрацию Python API и CSV CLI.
+- [x] Подготовить финальную демонстрацию Python API и CSV CLI.
 - Зависит от D7-03. Вход: существующие восемь `docs/day06_examples.csv`,
   bundle/manifest и `reports/day06/demo_predictions.csv`.
 - Переиспользовать inputs, не менять тексты и не вводить labels/quality metrics.
@@ -2045,7 +2045,40 @@ outputs, kernels и source/config/data/model hashes ради косметики.
   без fit/CV/network/test predict; общий notebook/type checkpoint.
   Не добиваться искусственно predictions всех трёх классов.
 - Самопроверка: почему unlabeled demo проверяет работу продукта, но не macro F1?
-- Свидетельство: pending.
+- Свидетельство (2026-10-25): docs/day07.md содержит self-contained Python/CSV
+  demo commands с prerequisites/cwd/I/O/errors, actual labels/interpretation,
+  fingerprints и verification evidence. Восемь input texts не менялись;
+  accepted Day06 output сохранён, новый competing demo dataset не создан.
+- Notebook дополнен D7-04 section: цель/теория, три code cells с typed API,
+  repeat/duplicate probe, sparse/OOV diagnostic, двумя CLI subprocesses и
+  проверкой state/file hashes, actual raw/clean/label table и self-check.
+  API full batch repeat совпал; derived batch 01/01/08 сохранил duplicates/order.
+  TF-IDF `(8, 5000)`, OOV nnz=0. Фактические labels 01/04/05 positive,
+  остальные neutral; negative coverage не требовалось, quality metrics нет.
+- Два CLI outputs в новых temporary paths, exit codes `[0,0]`, полностью
+  совпали по fields и bytes с API/accepted CSV. Output SHA-256
+  `2d689d528e0c4520e5b9e0616cf7206808f959409e83b66ea89d106d5856b6db`.
+  Input SHA-256 `d99af46c74f82bf0fd999a9ea84e4de66e3ed4b7ddb9dbf93f3f6a7a8a9c363c`.
+  Temporary outputs удалены context manager; accepted report не перезаписывался.
+- Fitted state до/после одинаков:
+  `7623ab0d4d555aed3c73944f59f85acb23e141ada2794fa826c9d7231383b7f7`.
+  Все 145 защищённых source/tests/scripts/config/data/reports/model/прежних
+  notebooks/README files и Git index неизменны; новые test predictions/fit/
+  CV/download/build/final evaluation не выполнялись.
+- Type gate выявил sparse indexing/private import boundary; новые cells
+  исправлены через concrete CSR, public audit alias и declared shape tuple.
+  Итоговый type gate: 53 project files, 86 notebook modules (7 sequential +
+  79 cell-boundary), 0 errors/warnings. CLI Pyright не полный VS Code Pylance.
+  Existing predict/CSV/type-gate tests: 67 passed за 12.61 s. Compileall и diff
+  check passed; full suite/fresh install/training replay не запускались.
+- Два clean kernels root/notebooks: по 14/14 code cells, 0 errors,
+  5.661/5.648 s; demo/guard payloads совпали. Guard разрешал только demo
+  inputs/их duplicate batch и temporary outputs; fit/score/CV/network/final-run
+  запрещены. В parent 4 probes, в каждом CLI child 5 probes заблокированы;
+  далее 0 forbidden calls. Child не читает training data/configs/reports;
+  state проверяется до/после predict. Evidence — `.cache/day07-d704/`.
+- Source/outputs прежних notebook sections сохранены; README и следующие ID
+  не начаты. D7-03 закоммичен как `739b39a`; D7-04 не закоммичен.
 
 ### D7-05 — самодостаточный итоговый README
 
@@ -2131,14 +2164,14 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ## Шаблон запроса для следующего чата
 
-Day06 принят; D7-01…D7-03 завершены, первый pending пункт — D7-04:
+Day06 принят; D7-01…D7-04 завершены, первый pending пункт — D7-05:
 
-> Выполни только D7-04 из PLAN.md по SPEC §12: переиспользуй восемь
-> docs/day06_examples.csv для Python API/CSV demo, сравни с принятыми outputs,
-> не меняй inputs ради ответов и не считай quality metrics. Обнови Day07
-> notebook, docs/day07.md и PLAN с проверенными результатами, выполни общий
-> checkpoint. Fit/CV/download/test prediction/final evaluation не запускай,
-> README и следующие ID не начинай, commit не делай.
+> Выполни только D7-05 из PLAN.md по SPEC §12: напиши итоговую инструкцию README
+> перед сохранённым исходным блоком задания, используя проверенные Day07
+> structure/results/demo. Раздели setup/data/training/build/inference и frozen
+> cache, явно укажи prerequisites/repeat/limitations. Обнови Day07 notebook и
+> PLAN, выполни общий checkpoint. D7-06 и следующие ID не начинай, новый fit/
+> CV/download/test prediction/final evaluation не запускай, commit не делай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.
