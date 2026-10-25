@@ -8,7 +8,8 @@ Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
 Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
-D7-01…D7-07 pending. Следующий исполнимый пункт — D7-01.
+D7-01 выполнен 2026-10-25; D7-02…D7-07 pending.
+Следующий исполнимый пункт — D7-02.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1848,7 +1849,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
 Один ID — один самостоятельно исполнимый запрос. Последовательность:
 **D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
-Все пункты ниже pending: сейчас изменены только SPEC/PLAN, реализация не начата.
+D7-01 выполнен 2026-10-25; D7-02…D7-07 остаются pending.
 
 Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
 цель → краткая теория → вызов существующего API → реальные outputs →
@@ -1876,7 +1877,7 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ### D7-01 — аудит handoff и начальный notebook checkpoint
 
-- [ ] Подтвердить готовность входов Day07 и создать read-only обзор workflow.
+- [x] Подтвердить готовность входов Day07 и создать read-only обзор workflow.
 - Зависит от D6-08. Вход: SPEC §12, docs Day01–Day06, текущая структура,
   configs, accepted local references и bundle. Сначала status/diff.
 - Составить inventory: entrypoints, данные, split/metrics/CV/selection,
@@ -1894,7 +1895,33 @@ outputs, kernels и source/config/data/model hashes ради косметики.
   inference и реальные checked metadata без нового model call.
 - Самопроверка: почему clone не содержит готовой модели? Чем проверка cache
   отличается от новой test evaluation?
-- Свидетельство: pending; записать фактические результаты при выполнении.
+- Свидетельство (2026-10-25): создан `docs/day07.md` с inventory, зависимостями,
+  runtime/paths/SHA-256 и фактическими несоответствиями. Новый notebook
+  `notebooks/day07_review.ipynb`: один D7-01 section, 5 code cells, реальные
+  outputs/интерпретация/self-check; root/src setup работает в обоих cwd.
+- `load_inference_reference` и `load_bundle` проверили frozen reference и
+  fitted pair; contracts/counts совпали. Train `(2210, 5)` / 2206 groups,
+  validation `(553, 5)` / 552 groups, saved predictions `(553, 3)`, V=5000.
+  Проверены 28 frozen input/final hashes; отдельно 30 input + 26 source entries
+  существующего consistency report. Recorded replay/standalone только прочитаны,
+  новых validation/test/new-text predictions, fit, transform, score/CV не было.
+- Inventory: 53 required + 10 optional paths, missing=0. Git inventory выявил,
+  что raw ZIP/source.json уже tracked вопреки описанию SPEC §3; raw files/index
+  не изменялись, документационное расхождение передано D7-02. README/карта SPEC
+  сохраняют устаревшие описания; исправления остаются D7-02/D7-05.
+- Целевой offline suite `test_day06_reference.py`, `test_day06_artifact.py`,
+  `test_check_types.py`: 65 passed за 14.53 s, fixture training отделён от
+  real-data checks. Type gate: 53 project files, 77 notebook modules
+  (7 sequential + 70 cell-boundary), 0 errors/warnings; CLI Pyright не полный
+  VS Code Pylance. Compileall src/tests/scripts и diff check passed.
+- Clean kernels root/notebooks: по 5/5 code cells, 0 errors, 2.206/2.183 s.
+  Временные guards запрещали model calls/build/save/CV/final-run/file writes/
+  network; по 3 probes заблокированы, 0 forbidden calls в учебных cells.
+  SHA-256 всех 106 защищённых исходных files и 63 inventory inputs неизменны.
+  Local evidence — `.cache/day07-checkpoints/`, summary/команды в docs/day07.md.
+- Production modules/configs/data/model pair и прежние notebooks не менялись.
+  Full pytest suite/fresh install/training replay/новый demo не запускались.
+  Планирование закоммичено отдельно как `3ac557a`; D7-01 не закоммичен.
 
 ### D7-02 — понятная структура и навигация проекта
 
@@ -1903,6 +1930,8 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 - Обновить SPEC §5: реальные роли `data/`, `features/`, `models/`, notebooks,
   configs, requirements и generated outputs; убрать описание принятых modules
   как действующих placeholders. Исторические этапы/свидетельства сохранить.
+  Уточнить описание Git storage в SPEC §3 по finding D7-01: raw ZIP/source.json
+  уже tracked; не удалять данные из index ради согласования документации.
 - Дополнить `docs/day07.md` короткой картой entrypoints и input/output paths,
   связать day docs и notebooks. Исправлять лишь релевантные устаревшие ссылки.
   Сохранять module names/CLI/artifact paths и исходные материалы задания;
@@ -2043,14 +2072,13 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ## Шаблон запроса для следующего чата
 
-Day06 принят; Day07 спланирован, первый pending пункт — D7-01:
+Day06 принят; D7-01 завершён, первый pending пункт — D7-02:
 
-> Выполни только D7-01 из PLAN.md по SPEC §12: проверь Day06 handoff и
-> frozen входы, создай docs/day07.md с inventory и начальный
-> notebooks/day07_review.ipynb. Используй read-only validators, не запускай
-> fit/predict/CV/download/final evaluation. Выполни общий checkpoint Day07,
-> запиши фактические свидетельства в PLAN. README и следующие ID не начинай,
-> commit не делай.
+> Выполни только D7-02 из PLAN.md по SPEC §12: актуализируй карту проекта,
+> Git storage и навигацию по результатам D7-01 в docs/day07.md. Сохрани source,
+> entrypoints и artifact paths. Обнови Day07 notebook и PLAN с проверенными
+> свидетельствами, выполни общий checkpoint. README и следующие ID не начинай,
+> fit/predict/CV/download/final evaluation не запускай, commit не делай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.
