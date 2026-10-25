@@ -8,8 +8,8 @@ Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
 Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
-D7-01…D7-02 выполнены 2026-10-25; D7-03…D7-07 pending.
-Следующий исполнимый пункт — D7-03.
+D7-01…D7-03 выполнены 2026-10-25; D7-04…D7-07 pending.
+Следующий исполнимый пункт — D7-04.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1849,7 +1849,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
 Один ID — один самостоятельно исполнимый запрос. Последовательность:
 **D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
-D7-01…D7-02 выполнены 2026-10-25; D7-03…D7-07 остаются pending.
+D7-01…D7-03 выполнены 2026-10-25; D7-04…D7-07 остаются pending.
 
 Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
 цель → краткая теория → вызов существующего API → реальные outputs →
@@ -1973,7 +1973,7 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ### D7-03 — итоговые результаты, error analysis и ограничения
 
-- [ ] Собрать tracked сводку качества с проверенными источниками чисел.
+- [x] Собрать tracked сводку качества с проверенными источниками чисел.
 - Зависит от D7-02. Вход: checked Day03–Day05 metrics/CV/selection,
   validation error artifacts/annotations и Day06 limitations.
 - Создать `docs/day07_results.md`: Dummy/baseline validation, все Day04 CV
@@ -1993,7 +1993,40 @@ outputs, kernels и source/config/data/model hashes ради косметики.
   без fit/test predict, hashes защищённых inputs неизменны; общий checkpoint.
 - Самопроверка: почему +delta на validation не означает такой же прирост
   на test? Почему высокий accuracy может сочетаться с низким negative recall?
-- Свидетельство: pending.
+- Свидетельство (2026-10-25): создан `docs/day07_results.md` с отдельными
+  Day03 validation Dummy/baseline, шестью Day04 CV rows, selected validation,
+  frozen test только выбранной модели, class metrics, errors и limitations.
+  Приведены 26 primary source paths/SHA-256 и дата проверки. docs/day07.md
+  дополнен ссылками, результатами и фактическими verification boundaries.
+- Existing read-only readers проверили inputs/provenance/IDs/order/labels и
+  saved metrics; `load_final_evaluation` вернул `reused`. Day05 provenance
+  сверена по 29 input + 10 output hashes. Baseline/Dummy metrics пересчитаны
+  из saved validation labels; нового estimator predict/score не было.
+- Validation macro F1 selected/baseline 0.805961/0.720965; delta по полной
+  точности +0.0849954834906087, relative +11.7891253014893%. Frozen test macro F1
+  0.797050158244188, N=690, support=84/428/178; baseline/Dummy test не оценивались.
+  CV/validation/test не смешаны; std folds не объявлен confidence interval.
+- Матрицы/pairs и annotations сверены existing functions по source IDs:
+  validation 553 rows / 552 groups, errors 84/84, reviewed 18/18. Категории
+  12 financial context, 3 negation/comparison, 2 ambiguous, 1 other относятся
+  только к reviewed rows. Приведены прежние validation observations и будущие
+  гипотезы отдельно от causal claims; новые test examples не просматривались.
+- Notebook дополнен D7-03 section с четырьмя code cells, реальными таблицами,
+  формами DataFrame/TF-IDF/predictions/confusion, interpretation и self-check.
+  Source прежних D7-01/D7-02 sections сохранён. Два clean guarded kernels
+  root/notebooks: по 11/11 code cells, 0 errors, 2.718/2.703 s; результаты
+  совпали полностью. По 3 probes блокированы; далее 0 forbidden calls.
+- Type gate: 53 project files, 83 notebook modules (7 sequential + 76
+  cell-boundary), 0 errors/warnings; CLI Pyright не полный VS Code Pylance.
+  Целевые Day05 analysis/confusion/failure/cache + type-gate tests: 71 passed
+  за 14.02 s, fixture fit/predict отделены от real data. Compileall и diff
+  check passed; full suite/fresh install/training replay/demo не запускались.
+- Все 144 защищённых source/tests/scripts/config/data/report/model/прежних
+  notebooks/README files и Git index неизменны. 26 result-source hashes
+  совпали до/после. Проверены 73 relative links в SPEC/day docs, broken links
+  нет. Evidence — `.cache/day07-d703/`; новых ML calls, tuning,
+  CV, download или final evaluation нет. D7-02 commit — `16d88d2`;
+  D7-03 не закоммичен, следующие ID не начаты.
 
 ### D7-04 — единое demo поверх готового inference
 
@@ -2098,13 +2131,14 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ## Шаблон запроса для следующего чата
 
-Day06 принят; D7-01…D7-02 завершены, первый pending пункт — D7-03:
+Day06 принят; D7-01…D7-03 завершены, первый pending пункт — D7-04:
 
-> Выполни только D7-03 из PLAN.md по SPEC §12: собери docs/day07_results.md
-> из проверенных Day03–Day05 artifacts, раздели CV/validation/frozen test,
-> опиши сохранённый error analysis и ограничения. Обнови Day07 notebook,
-> docs/day07.md и PLAN, выполни общий checkpoint. Не запускай новый fit/predict,
-> CV/download/final evaluation; README и следующие ID не начинай, commit не делай.
+> Выполни только D7-04 из PLAN.md по SPEC §12: переиспользуй восемь
+> docs/day06_examples.csv для Python API/CSV demo, сравни с принятыми outputs,
+> не меняй inputs ради ответов и не считай quality metrics. Обнови Day07
+> notebook, docs/day07.md и PLAN с проверенными результатами, выполни общий
+> checkpoint. Fit/CV/download/test prediction/final evaluation не запускай,
+> README и следующие ID не начинай, commit не делай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

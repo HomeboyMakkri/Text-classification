@@ -3,12 +3,14 @@
 ## D7-01: результат и границы
 
 Проверено 2026-10-25, после принятого D6-08. D7-01 завершает аудит входов,
-а не финализацию всего mini-product. Результат D7-02 — в карте ниже;
-D7-03…D7-07 остаются pending.
+а не финализацию всего mini-product. Результат D7-02 — в карте ниже,
+результаты D7-03 — в [итоговой сводке](day07_results.md).
+D7-04…D7-07 остаются pending.
 Контракт — [SPEC §12](../SPEC.md), порядок — [PLAN](../PLAN.md).
 Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb).
 Исходный раздел D7-01 содержит пять code cells; D7-02 добавляет две code cells
-для проверки путей/import locations и фактического Git storage.
+для проверки путей/import locations и Git storage, D7-03 — четыре code cells
+для сводки проверенных saved results.
 
 Вызваны существующие `load_inference_reference(ROOT)` и
 `load_bundle(ROOT / "models/day06/sentiment_bundle.joblib")` из
@@ -112,7 +114,7 @@ Source tree не содержит HTTP service/UI/deployment. Корневой
 | 04 | [day04.md](day04.md) | [day04_experiments](../notebooks/day04_experiments.ipynb) | [models.run_experiments_day04](../src/finnews_sentiment/models/run_experiments_day04.py) |
 | 05 | [day05.md](day05.md), [annotations](day05_failure_cases.csv) | [day05_error_analysis](../notebooks/day05_error_analysis.ipynb) | [models.run_error_analysis_day05](../src/finnews_sentiment/models/run_error_analysis_day05.py); read-only `load_final_evaluation` в [final_evaluation.py](../src/finnews_sentiment/models/final_evaluation.py) |
 | 06 | [day06.md](day06.md), [demo input](day06_examples.csv) | [day06_inference](../notebooks/day06_inference.ipynb) | [models.inference_artifact](../src/finnews_sentiment/models/inference_artifact.py), [inference_consistency](../src/finnews_sentiment/models/inference_consistency.py), [predict](../src/finnews_sentiment/models/predict.py) |
-| 07 | [day07.md](day07.md), [PLAN](../PLAN.md) | [day07_review](../notebooks/day07_review.ipynb) | Read-only вызовы тех же accepted loaders; текущие sections D7-01/D7-02 |
+| 07 | [day07.md](day07.md), [results](day07_results.md), [PLAN](../PLAN.md) | [day07_review](../notebooks/day07_review.ipynb) | Read-only вызовы тех же accepted loaders; текущие sections D7-01…D7-03 |
 
 ### Где находятся outputs и как их получить
 
@@ -267,6 +269,60 @@ guards, что D7-01. В каждом kernel три probes остановлен�
 `execute_checkpoint.py`. Они не являются inputs обычного Run All notebook.
 Full README run, training replay, новое demo и final evaluation не выполнялись;
 следующие D7-03…D7-07 pending. D7-01 закоммичен отдельно как `1ec0dac`.
+
+## D7-03: сводка результатов и проверки
+
+[docs/day07_results.md](day07_results.md) содержит отдельные Day03 validation,
+Day04 train-only CV и validation confirmation, Day05 frozen test, class metrics,
+validation error analysis, ограничения и 26 source paths/SHA-256.
+Все числа получены из текущих проверенных artifacts, не из прежних текстовых
+выводов. `load_day04_inputs`, `load_validation_analysis`,
+`build_validation_confusion`, `select_validation_examples`,
+`load_failure_annotations` и `load_final_evaluation` проверяют исходные
+таблицы/metrics/IDs/annotations без estimator calls и записи ML artifacts.
+Day05 provenance дополнительно сверена по 29 input + 10 output hashes.
+
+Validation macro F1 selected/baseline: 0.805961/0.720965; absolute delta
++0.084995, relative +11.79%, расчёт до округления. Frozen test macro F1
+0.797050 относится только к выбранной модели; baseline/Dummy test не оценивались.
+Для error analysis явно разделены 553 validation rows / 552 groups,
+84 errors / 84 groups и 18 reviewed rows / 18 groups. Категории annotations
+не выдаются за причинные механизмы или распределение среди всех errors.
+
+| Проверка | Фактический результат 2026-10-25 |
+| --- | --- |
+| Offline targeted tests | 71 passed, 14.02 s |
+| CLI type gate | 53 project files; 7 sequential + 76 cell-boundary = 83 notebook modules; 0 errors/warnings |
+| Clean kernel, cwd=root | 11/11 code cells, 0 errors, 2.718 s |
+| Clean kernel, cwd=notebooks | 11/11 code cells, 0 errors, 2.703 s |
+| Cache / repeatability | `cache_status=reused`; сводка из обоих cwd совпала полностью |
+| Input immutability | 144 защищённых files и Git index неизменны; 26 result-source hashes до/после совпали |
+| Навигация | 73 относительные ссылки в SPEC/day docs разрешаются, включая новую сводку |
+| Compileall / diff check | passed |
+
+Целевые tests: `tests/test_day05_error_analysis.py`, `test_day05_confusion.py`,
+`test_day05_failure_cases.py`, `test_day05_final_evaluation.py`,
+`test_check_types.py`; запуск через `venv/bin/python -m pytest ... -v`.
+Также выполнены `venv/bin/python scripts/check_types.py`,
+`venv/bin/python -m compileall -q src tests scripts` и `git diff --check`.
+Tests работают на fixtures, в том числе допускают fixture fit/predict;
+real-data training/test prediction не выполнялись. Новые tests для документа
+не добавлялись; использованы existing contracts. CLI Pyright не полный VS Code
+Pylance, полный pytest suite в D7-03 не запускался.
+
+Два clean kernels использовали model/build/write/CV/network/final-run guards
+D7-02: в каждом три probes заблокированы до операции, далее 0 forbidden calls.
+Разрешены только прежние read-only Git subprocesses для D7-02 cells; тексты
+и сохранённые разделы D7-01/D7-02 не переписывались. Report runner не вызывался,
+новые validation/test/new-text predictions не создавались, гипотезы не проверялись.
+
+Evidence — `.cache/day07-d703/`: `before.json`, `index-before.txt`, `types.log`,
+`pytest.log`, `execution.json`, `execution.log`, `results.json`, `links.json`,
+`final_audit.json`, `from-root.ipynb`, `from-notebooks.ipynb`.
+`results.json` извлечён из переменных guarded notebook отдельной временной
+cell, не включённой в сохранённый учебный notebook; документ сформирован из
+этой сводки. Local generation/execution helpers не являются runtime inputs.
+D7-02 закоммичен как `16d88d2`; D7-03 оставлен без commit.
 
 ## Приложение: inventory SHA-256 на 2026-10-25
 
