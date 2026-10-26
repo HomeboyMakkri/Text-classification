@@ -5,13 +5,15 @@
 Проверено 2026-10-25, после принятого D6-08. D7-01 завершает аудит входов,
 а не финализацию всего mini-product. Результат D7-02 — в карте ниже,
 результаты D7-03 — в [итоговой сводке](day07_results.md).
-D7-04 показывает demo ниже; D7-05…D7-07 остаются pending.
+D7-04 показывает demo ниже; D7-05 подготовил итоговый README.
+D7-06…D7-07 остаются pending.
 Контракт — [SPEC §12](../SPEC.md), порядок — [PLAN](../PLAN.md).
 Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb).
 Исходный раздел D7-01 содержит пять code cells; D7-02 добавляет две code cells
 для проверки путей/import locations и Git storage, D7-03 — четыре code cells
 для сводки проверенных saved results. D7-04 добавляет три code cells: API,
-TF-IDF/OOV diagnostic и два повтора CSV CLI.
+TF-IDF/OOV diagnostic и два повтора CSV CLI. D7-05 добавляет две code cells
+с картой команд и проверкой README без запуска документированных flows.
 
 Вызваны существующие `load_inference_reference(ROOT)` и
 `load_bundle(ROOT / "models/day06/sentiment_bundle.joblib")` из
@@ -104,7 +106,8 @@ paths не переносились. [Day01 docs](day01.md) уточняют raw
 | [requirements-day03.txt](../requirements-day03.txt) / [requirements-dev.txt](../requirements-dev.txt) | ML runtime (включает [Day01 pins](../requirements-day01.txt)) / дополнительные dev tools |
 
 Source tree не содержит HTTP service/UI/deployment. Корневой
-[README](../README.md) остаётся исходным материалом и вводной Day01 до D7-05.
+[README](../README.md) с D7-05 содержит итоговую инструкцию перед сохранённым
+исходным материалом задания.
 `requirements.txt` — broad curriculum list, не проверенный pinned runtime.
 
 | День | Инструкция | Notebook | Реализованный вход в `finnews_sentiment` |
@@ -115,7 +118,7 @@ Source tree не содержит HTTP service/UI/deployment. Корневой
 | 04 | [day04.md](day04.md) | [day04_experiments](../notebooks/day04_experiments.ipynb) | [models.run_experiments_day04](../src/finnews_sentiment/models/run_experiments_day04.py) |
 | 05 | [day05.md](day05.md), [annotations](day05_failure_cases.csv) | [day05_error_analysis](../notebooks/day05_error_analysis.ipynb) | [models.run_error_analysis_day05](../src/finnews_sentiment/models/run_error_analysis_day05.py); read-only `load_final_evaluation` в [final_evaluation.py](../src/finnews_sentiment/models/final_evaluation.py) |
 | 06 | [day06.md](day06.md), [demo input](day06_examples.csv) | [day06_inference](../notebooks/day06_inference.ipynb) | [models.inference_artifact](../src/finnews_sentiment/models/inference_artifact.py), [inference_consistency](../src/finnews_sentiment/models/inference_consistency.py), [predict](../src/finnews_sentiment/models/predict.py) |
-| 07 | [day07.md](day07.md), [results](day07_results.md), [PLAN](../PLAN.md) | [day07_review](../notebooks/day07_review.ipynb) | Accepted loaders и demo inference; текущие sections D7-01…D7-04 |
+| 07 | [day07.md](day07.md), [results](day07_results.md), [PLAN](../PLAN.md) | [day07_review](../notebooks/day07_review.ipynb) | Accepted loaders, demo inference, README audit; текущие sections D7-01…D7-05 |
 
 ### Где находятся outputs и как их получить
 
@@ -163,7 +166,9 @@ accepted snapshot, не обещание одинаковых pickle bytes ме�
    `.gitignore` с `/data/` не исключает ранее tracked files. D7-01 выявил
    расхождение с прежним SPEC §3; **D7-02 исправил описание** в SPEC/Day01 docs.
    Archive/index не менялись.
-2. README вводно описывает только Day01; итоговый README — D7-05.
+2. Прежняя вводная README описывала только Day01; **D7-05 добавил итоговую
+   инструкцию**, сохранив исходный блок задания. Исполнение всех её flows
+   остаётся D7-06.
 3. Историческая карта templates SPEC §5 **актуализирована D7-02** по принятой
    реализации. Исторические stage contracts и evidence не переписывались.
 4. Day06 demo/consistency сохранены, но новый demo и полноценное воспроизведение
@@ -482,6 +487,68 @@ Evidence — `.cache/day07-d704/`: `before.json`, `index-before.txt`, `demo.json
 Они не нужны ordinary notebook/API/CLI. Сводка demo/guards из обоих cwd совпала
 полностью. Новых test predictions, training, tuning или quality metrics demo
 не было. README и D7-05 не начаты. D7-03 commit — `739b39a`, D7-04 без commit.
+
+## D7-05: итоговая инструкция README
+
+[README](../README.md) теперь содержит задачу/dataset/license/mapping,
+setup pinned runtime и dev tools, быстрый Python/CSV inference, explicit
+data preparation/training, frozen cache/report/build/reuse/consistency,
+метрики/error analysis/ограничения, структуру и links на все day docs/notebooks.
+Для flows указаны cwd/prerequisites/output paths/effects и repeat semantics.
+Source/CLI/artifact paths не менялись; input demo и frozen results сохранены.
+
+Ordinary inference требует trusted pair/compatible src/runtime и новые inputs.
+README явно описывает, что pair и frozen reports не приходят с clone,
+как разместить существующую trusted pair и что требуется для явного build.
+Новый Day03/Day04 training run не выдаётся за полный Day06 build workflow;
+первый D5-04 final run отделён от read-only `load_final_evaluation` и quickstart.
+Missing/partial cache не разрешает автоматическое удаление или test evaluation.
+
+Исходный блок задания от `<b>Финансовые новости — анализ тональности для
+трейдеров</b>` сохранён побайтно: **9621 bytes**, SHA-256
+`0509b23be1a4ea4a90b78ea557db5b441effc4be0fbec0f2f44afbf1ad4a882d`.
+В начале README поясняется, что эти старые учебные примеры не являются
+текущими командами запуска. Старый вводный текст о Day01 заменён.
+
+| Проверка | Фактический результат 2026-10-25 |
+| --- | --- |
+| Карта README commands | 18 entries с prerequisites/output/effects/repeat; flags 9 project modules сверены по AST source |
+| Numerical consistency | 5 metric rows и validation delta совпали с checked D7-03 values, protocols не смешаны |
+| README paths/dependencies | 40 local links разрешаются, pinned requirement files существуют |
+| Syntax | 2 Python heredoc snippets скомпилированы; 14 Bash blocks parsed через `bash -n`; не исполнялись |
+| Original assignment | 9621 bytes, SHA-256 совпадает с предыдущим commit |
+| Type gate | 53 project files; 7 sequential + 81 cell-boundary = 88 notebook modules; 0 errors/warnings |
+| Offline targeted tests | `tests/test_check_types.py`: 5 passed, 6.91 s |
+| Clean kernel, cwd=root | 16/16 code cells, 0 errors, 5.296 s |
+| Clean kernel, cwd=notebooks | 16/16 code cells, 0 errors, 5.489 s |
+| Protected snapshot | 144 source/tests/scripts/config/data/reports/model/прежних docs/notebooks files и Git index неизменны |
+| Compileall / diff check | passed |
+
+Выполнены `venv/bin/python scripts/check_types.py`,
+`venv/bin/python -m pytest tests/test_check_types.py -v`,
+`venv/bin/python -m compileall -q src tests scripts`, `git diff --check`;
+новых tests для Markdown нет. Первый gate обнаружил quoting error regex в
+новой audit cell: исправлена генерация строки, все code cells компилируются,
+итоговые sequential/cell-boundary checks проходят. CLI Pyright не является
+полным запуском Pylance внутри VS Code. Полный pytest suite не запускался.
+
+Новые D7-05 cells только читают README/source и проверяют описанные contracts;
+не исполняют setup/download/training/build/report/consistency commands.
+При общем Run All повторяется D7-04 demo под прежними guards: только восемь
+demo inputs/derived duplicate batch, temporary CSV outputs, неизменный state.
+На каждый kernel parent имеет 4 blocked probes, два CLI children по 5;
+дальше запрещённых вызовов нет. Новых validation/test predictions, fit/CV,
+network, final evaluation нет. Source и outputs прежних sections сохранены.
+
+Evidence — `.cache/day07-d705/`: `before.json`, `index-before.txt`,
+`assignment.json`, `original_assignment.txt`, `shell_syntax.json`, `types.log`,
+`types-initial.log`, `pytest.log`, `execution.json`, `execution.log`,
+`execution-initial.log`, `demo.json` (включает README audit payload),
+`from-root.ipynb`, `from-notebooks.ipynb`, `links.json`, `final_audit.json`.
+Execution-only guards переиспользованы из `.cache/day07-d704/`; эти helpers
+не нужны ordinary notebook/API/CLI. D7-04 commit — `1482198`; D7-05 без commit.
+Fresh install и полный запуск README **не подтверждены**: D7-06 остаётся pending,
+итоговая приёмка — D7-07. README не объявляет эти checks выполненными.
 
 ## Приложение: inventory SHA-256 на 2026-10-25
 

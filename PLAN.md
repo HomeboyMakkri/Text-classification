@@ -8,8 +8,8 @@ Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
 Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
-D7-01…D7-04 выполнены 2026-10-25; D7-05…D7-07 pending.
-Следующий исполнимый пункт — D7-05.
+D7-01…D7-05 выполнены 2026-10-25; D7-06…D7-07 pending.
+Следующий исполнимый пункт — D7-06.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1849,7 +1849,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
 Один ID — один самостоятельно исполнимый запрос. Последовательность:
 **D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
-D7-01…D7-04 выполнены 2026-10-25; D7-05…D7-07 остаются pending.
+D7-01…D7-05 выполнены 2026-10-25; D7-06…D7-07 остаются pending.
 
 Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
 цель → краткая теория → вызов существующего API → реальные outputs →
@@ -2082,7 +2082,7 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ### D7-05 — самодостаточный итоговый README
 
-- [ ] Заменить вводную о Day01 актуальной инструкцией mini-product.
+- [x] Заменить вводную о Day01 актуальной инструкцией mini-product.
 - Зависит от D7-04. Вход: проверенная структура, results doc и demo commands.
 - Перед сохранённым исходным блоком задания написать: задача/классы, dataset
   source/subset/license, структура, runtime/setup, data preparation, training,
@@ -2104,7 +2104,38 @@ outputs, kernels и source/config/data/model hashes ради косметики.
   остаётся D7-06; здесь её не объявлять выполненной. Общий checkpoint.
 - Самопроверка: что нужно для ordinary inference и что дополнительно для
   training/artifact build? Почему broad requirements не frozen runtime?
-- Свидетельство: pending.
+- Свидетельство (2026-10-25): README содержит self-contained instruction:
+  задача/dataset/subset/license/mapping, pinned setup/dev/kernel, Python/CSV
+  inference, data/training, frozen cache/report/build/reuse/consistency,
+  actual results/error analysis/limitations и links на docs/notebooks.
+  Для flows указаны cwd/prerequisites/outputs/effects/repeat; current venv
+  не пересоздавался. Missing pair/references/cache не запускают silent rebuild.
+- Original assignment block сохранён побайтно: 9621 bytes, SHA-256
+  `0509b23be1a4ea4a90b78ea557db5b441effc4be0fbec0f2f44afbf1ad4a882d`.
+  README отделяет первоначальные учебные заготовки от текущих инструкций.
+  Source/CLI/model paths и исходные classification_*.txt не менялись.
+- Day07 notebook дополнен D7-05 section: цель/теория, 2 code cells с картой
+  18 commands, prerequisites/effects/repeat, static source/CLI flags check,
+  numerical/link/snippet checks, интерпретация/self-check. Flags девяти project
+  modules сверены по AST, 40 README local links разрешаются. Пять строк metrics
+  и validation delta совпали с checked D7-03 values. Два Python snippets
+  скомпилированы, 14 Bash blocks parsed через `bash -n`, не исполнялись.
+- Итоговый type gate: 53 project files, 88 notebook modules (7 sequential +
+  81 cell-boundary), 0 errors/warnings; initial regex quoting error новой cell
+  исправлен без ignore/ослабления gate. CLI Pyright не полный VS Code Pylance.
+  Existing type-gate tests: 5 passed за 6.91 s; новых tests для Markdown нет.
+  Compileall src/tests/scripts и diff check passed; full pytest не запускался.
+- Два clean kernels root/notebooks: по 16/16 code cells, 0 errors,
+  5.296/5.489 s; README audit/demo/guard payloads совпали. Новые cells не
+  исполняют documented setup/training/build/report commands; предыдущий D7-04
+  demo повторяется под guards только на demo inputs. В parent 4 probes и
+  по 5 в CLI children заблокированы, далее 0 forbidden calls. Fit/CV/download/
+  validation/test prediction/final-run не выполнялись.
+- Все 144 защищённых files и Git index неизменны; исходные sections и outputs
+  notebook сохранены. Source/runtime/model/frozen reports не менялись.
+  Evidence — `.cache/day07-d705/`, summary в docs/day07.md. Full README flow/
+  fresh install не подтверждены: проверка исполнения остаётся D7-06,
+  приёмка всего проекта — D7-07. D7-04 commit — `1482198`, D7-05 без commit.
 
 ### D7-06 — проверка запуска по README в изолированных копиях
 
@@ -2164,14 +2195,14 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ## Шаблон запроса для следующего чата
 
-Day06 принят; D7-01…D7-04 завершены, первый pending пункт — D7-05:
+Day06 принят; D7-01…D7-05 завершены, первый pending пункт — D7-06:
 
-> Выполни только D7-05 из PLAN.md по SPEC §12: напиши итоговую инструкцию README
-> перед сохранённым исходным блоком задания, используя проверенные Day07
-> structure/results/demo. Раздели setup/data/training/build/inference и frozen
-> cache, явно укажи prerequisites/repeat/limitations. Обнови Day07 notebook и
-> PLAN, выполни общий checkpoint. D7-06 и следующие ID не начинай, новый fit/
-> CV/download/test prediction/final evaluation не запускай, commit не делай.
+> Выполни только D7-06 из PLAN.md по SPEC §12: проверь README flows в отдельных
+> inference/training/frozen copies с сохранением исходных artifacts. Training
+> replay Day02→Day03→Day04 запускай только явно в отдельной копии на прежнем
+> train/configs, без нового поиска/test prediction/final evaluation. Запиши
+> реальные commands/logs/hashes/limitations, обнови Day07 notebook/docs/PLAN.
+> D7-07 не начинай, current venv/пользовательские kernels не меняй, commit не делай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

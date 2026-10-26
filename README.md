@@ -1,15 +1,349 @@
-# Text-classification — учебный ML/NLP проект
+# Text-classification — финансовая тональность
 
-Реализован day01: реальные данные Financial PhraseBank и воспроизводимый EDA.
-Инструкция запуска: [docs/day01.md](docs/day01.md).
-Notebook: [notebooks/day01_eda.ipynb](notebooks/day01_eda.ipynb).
+Учебный ML/NLP mini-product: классификация англоязычных финансовых предложений
+как `negative`, `neutral` или `positive`. Полный путь:
+**data → preprocessing → baseline → train-only CV → error analysis → frozen evaluation → inference**.
+Переиспользуемая логика находится в `src/finnews_sentiment/`, notebooks объясняют
+тот же код и показывают реальные результаты.
 
-Правила работы Codex — [AGENTS.md](AGENTS.md), контракты — [SPEC.md](SPEC.md),
-шаги и подтверждённые результаты — [PLAN.md](PLAN.md).
+Day01–Day06 приняты. Итоговые результаты, demo и инструкция README подготовлены;
+проверка всех команд по README в изолированных копиях — D7-06, приёмка всего
+mini-product — D7-07, пока pending. Текущий статус — [PLAN.md](PLAN.md),
+контракты — [SPEC.md](SPEC.md), evidence — [docs/day07.md](docs/day07.md).
 
-Ниже сохранены исходные материалы задания. Примеры следующих дней являются
-учебными заготовками; согласованные решения, включая fit TF-IDF только на train,
-зафиксированы в SPEC.
+## Задача и данные
+
+Источник — [Financial PhraseBank](https://huggingface.co/datasets/takala/financial_phrasebank),
+только `sentences_75agree` (agreement ≥75%): 3453 предложения, 3448 exact-text
+groups после принятой очистки. Agreement subsets перекрываются: не объединяем их.
+Revision, archive SHA-256 и class order закреплены в [configs/dataset.json](configs/dataset.json).
+Лицензия данных — **CC-BY-NC-SA-3.0**; Malo et al. (2014),
+*Good debt or bad debt: Detecting semantic orientations in economic texts*.
+
+Mapping всегда **`0=negative`, `1=neutral`, `2=positive`**. `minimal-v1`
+нормализует HTML/entities, регистр и пробелы, сохраняя отрицания, числа,
+проценты и валюты. TF-IDF vocabulary/IDF fit только на train, при CV — внутри
+Pipeline каждого fold. Same-label duplicates сохранены в одной группе/split.
+Seed=42: train 2210 строк / 2206 groups, validation 553 / 552, test 690 / 690.
+
+## Окружение
+
+Все команды ниже — **Bash, Linux/WSL, cwd=корень checkout**. Проверенный runtime:
+Python **3.14.6**, зависимости из [requirements-day03.txt](requirements-day03.txt)
+(включает [Day01 pins](requirements-day01.txt)). Полные версии и hashes —
+[docs/day06.md](docs/day06.md). `requirements.txt` сохраняет исходный широкий
+список учебных библиотек и не является проверенным runtime этого workflow.
+
+**Если `venv/` уже существует, используйте его; не пересоздавайте и не
+обновляйте зависимости для обхода version mismatch.** Для нового checkout
+сначала выберите Python 3.14.6 как `python`, затем:
+
+```bash
+python --version
+python -m venv venv
+venv/bin/python -m pip install -r requirements-day03.txt
+```
+
+Команды создают `venv/` и устанавливают pinned packages; pip требует доступного
+package index либо локального cache. Повтор создания окружения не нужен.
+Для разработки/проверок дополнительно:
+
+```bash
+venv/bin/python -m pip install -r requirements-dev.txt
+```
+
+Новая установка dependencies здесь ещё не подтверждена; текущие проверки
+используют существующий venv. У inference exact version/source checks:
+несовместимость заканчивается ошибкой, не автоматическим refit.
+
+## Быстрый inference с готовой моделью
+
+Нужны совместимые `src/`, runtime, **trusted local pair**:
+
+- `models/day06/sentiment_bundle.joblib` — fitted TF-IDF → LinearSVC Pipeline;
+- `models/day06/manifest.json` — соседний manifest той же pair.
+
+Эти files **не хранятся в Git**. Получите оба файла из доверенного принятого
+Day06 build и разместите по этим путям. Если pair нет, раздел «Подготовка
+artifact» ниже описывает явный build с обязательными frozen references.
+Clone сам по себе не даёт готовый bundle или frozen reports; публичного
+model download/автоматического восстановления нет. Joblib может исполнять код:
+checksum проверяет целостность, но не доверенность автора.
+
+Ordinary inference не читает dataset/configs/training reports и не делает fit.
+Примеры [docs/day06_examples.csv](docs/day06_examples.csv) уже tracked, true labels
+им не нужны. Для Python batch demo (только чтение и inference, без записи):
+
+```bash
+PYTHONPATH=src venv/bin/python - <<'PY'
+from dataclasses import asdict
+from pathlib import Path
+import pandas as pd
+from finnews_sentiment.models.inference_artifact import load_bundle
+from finnews_sentiment.models.predict import predict_texts
+
+inputs = pd.read_csv("docs/day06_examples.csv", dtype=str, keep_default_na=False)
+bundle = load_bundle(Path("models/day06/sentiment_bundle.joblib"))
+predictions = predict_texts(bundle, inputs["text"].tolist())
+output = pd.DataFrame([
+    {"example_id": example_id, **asdict(item)}
+    for example_id, item in zip(inputs["example_id"], predictions, strict=True)
+])
+print(output.to_string(index=False))
+PY
+```
+
+API принимает непустой `Sequence[str]`; одна строка передаётся как `[text]`.
+Typed record: `text`, `text_clean`, integer `pred_label_id`, `pred_label`.
+Порядок/duplicates сохраняются, probabilities/confidence не возвращаются.
+
+CSV CLI сохраняет исходные columns/строковые значения и добавляет те же три
+prediction columns. Обязательна непустая `text`; true labels не требуются.
+Создайте новый output path (последняя команда показывает результат):
+
+```bash
+readme_demo_dir=$(mktemp -d)
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.predict \
+  --model models/day06/sentiment_bundle.joblib \
+  --input docs/day06_examples.csv --output "$readme_demo_dir/predictions.csv"
+cat "$readme_demo_dir/predictions.csv"
+```
+
+Для своего CSV замените только `--input` и новый `--output`. В примере input
+`(8, 2)` → output `(8, 5)`; raw `(8,)` → fitted TF-IDF `(8, 5000)` → labels `(8,)`.
+Повтор с тем же output path откажет в перезаписи; для повтора нужен новый path.
+Missing/bad pair, неверный CSV, blank text, reserved prediction columns и
+совпадающие input/output paths — error (CLI exit 2), без скрытого build или
+частичного output. Полный I/O/errors contract — [Day06](docs/day06.md).
+
+Demo responses: `01/04/05 → positive`, остальные `neutral`; OOV `08` имеет
+нулевой TF-IDF row и штатный label. Это не gold labels или measurement качества.
+Python/API/CLI parity, raw→clean и ограничения показаны в [Day07 demo](docs/day07.md)
+и [notebook](notebooks/day07_review.ipynb). Input фразы не менялись ради ответов.
+
+## Подготовка данных и training
+
+Это **отдельный flow**, не prerequisite обычного inference с готовой pair.
+Для training/replay используйте отдельную копию checkout с локальным raw
+источником. Подготовка/обучение пишут outputs; не смешивайте свежие reports
+с принятыми frozen references в текущем checkout.
+
+В Git уже tracked immutable `data/raw/FinancialPhraseBank-v1.0.zip` и
+`data/raw/source.json`. `.gitignore` не исключает ранее tracked files.
+Canonical/processed CSV, splits и generated reports local/ignored; exceptions —
+tracked `reports/day03/observations.md` и `reports/day04/observations.md`.
+
+С существующим pinned archive выполнить **offline**, без training:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.data.prepare_phrasebank --root .
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.data.prepare_day02 --root .
+```
+
+Первая команда проверяет hash и пишет canonical CSV
+`data/interim/financial_phrasebank_75agree.csv`; вторая проверяет archive/CSV,
+пишет `data/processed/financial_phrasebank_75agree.csv` и
+`reports/day02/{preprocessing,duplicates,provenance}.json`. Повтор явно
+пересоздаёт эти outputs; raw не меняется. Missing text/labels/empty-after-clean
+отражаются в отчёте, conflicting labels блокируют подготовку.
+
+**Только если архива нет**, download — отдельная явная команда; при наличии
+локального архива она использует его и не скачивает заново:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.data.prepare_phrasebank --root . --download
+```
+
+Затем повторите Day02 preparation. NLTK resources не нужны. Подробности —
+[Day01](docs/day01.md) и [Day02](docs/day02.md).
+
+На готовых Day02 processed/provenance запустить baseline, затем fixed CV:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.train_model \
+  --root . --config configs/train_baseline.json
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.run_experiments_day04 \
+  --root . --config configs/experiments_day04.json
+```
+
+Day03 создаёт `data/processed/day03/splits.csv`, baseline/Dummy validation
+predictions/metrics/provenance в `reports/day03/`. Day04 использует прежние
+splits, создаёт train-only folds/CV/selection и validation confirmation в
+`reports/day04/`. Оба запускают **fit и запись**; повтор снова обучает
+фиксированные configurations и пересоздаёт outputs, не является cache-only.
+Test estimator не получает. Это воспроизведение прежних экспериментов,
+не разрешение нового tuning по уже просмотренным validation/test результатам.
+Точные protocols — [Day03](docs/day03.md), [Day04](docs/day04.md).
+
+## Frozen evaluation, report и artifact
+
+Day03/Day04 сохраняют predictions/configs, но не fitted inference Pipeline.
+Для следующих команд нужны **уже принятые совместимые frozen Day02–Day05
+inputs/reports**, включая completed `reports/day05/final_evaluation.json`,
+`frozen_protocol.json` и связанные outputs/provenance. Одного нового training
+run до Day04 недостаточно для Day06 build. Получите/сохраните полный snapshot
+прежнего принятого workflow; hashes/versions/IDs должны совпадать.
+
+Первый held-out test run — отдельный исторический D5-04 после freeze/replay,
+описанный в [Day05](docs/day05.md). Он не часть quickstart или автоматический
+fallback. При отсутствии/partial/mismatched cache остановитесь и проверьте
+inputs/protocol/hashes/runtime; cache не удаляется и test не переоценивается
+ради запуска инструкции. Для read-only проверки существующего результата:
+
+```bash
+PYTHONPATH=src venv/bin/python - <<'PY'
+from pathlib import Path
+from finnews_sentiment.models.final_evaluation import load_final_evaluation
+
+cached = load_final_evaluation(Path.cwd())
+print(cached.cache_status, cached.candidate_id)
+print(cached.confusion.metrics)
+PY
+```
+
+Completed cache возвращает `reused`, проверяет сохранённые labels/metrics без
+fit/predict/write. При наличии того же cache и tracked manual annotations
+отдельный report-only runner пересобирает `reports/day05/` (явная запись):
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.run_error_analysis_day05 --root .
+```
+
+Он не обучает и не предсказывает; повтор проверяет inputs и воспроизводит report,
+не заменяет frozen final cache. Отдельная команда подготовки inference pair:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.inference_artifact --root .
+```
+
+При отсутствии pair эта команда явно fit прежний train-only TF-IDF/LinearSVC,
+проверяет exact validation replay и serialization, публикует
+`models/day06/{sentiment_bundle.joblib,manifest.json}`. При complete pair —
+checked reuse без fit/predict/write. Partial/bad pair даёт error, без удаления
+или автоматического overwrite. Validation/test не добавляются к train;
+новых test predictions нет. Build не вызывается из ordinary inference.
+
+Отдельная расширенная consistency проверка требует references и готовую pair:
+
+```bash
+PYTHONPATH=src venv/bin/python -m finnews_sentiment.models.inference_consistency --root .
+```
+
+Она проверяет train/validation raw-clean parity, предсказывает на validation и
+новых standalone examples, при необходимости пишет `reports/day06/consistency.json`.
+Fit/test prediction отсутствуют. Это повтор проверки согласованности,
+не новая независимая оценка качества. Полные prerequisites/reuse и trusted-local
+ограничения — [Day06](docs/day06.md), [SPEC §11](SPEC.md).
+
+## Результаты и error analysis
+
+Сводка прежних проверенных измерений; CV выбирал candidate до validation.
+Все values округлены до шести знаков; N в CV row — весь train pool.
+
+| Протокол | Модель | N | Accuracy | Macro F1 |
+| --- | --- | --- | --- | --- |
+| Validation | Dummy most_frequent | 553 | 0.622061 | 0.255667 |
+| Validation | TF-IDF + LogisticRegression baseline | 553 | 0.813743 | 0.720965 |
+| Train-only CV, mean 3 folds | TF-IDF + LinearSVC | 2210 | 0.836660 | 0.768715 |
+| Validation confirmation | TF-IDF + LinearSVC | 553 | 0.848101 | 0.805961 |
+| Frozen test | TF-IDF + LinearSVC | 690 | 0.856522 | 0.797050 |
+
+Три направления улучшения: word unigrams; замена LogisticRegression на
+LinearSVC; grid LogisticRegression C={0.1,1,10}. Шесть CV rows / пять уникальных
+configurations. Выбор — maximum mean CV macro F1, exact ties по frozen order.
+У LinearSVC CV std macro F1=0.024064 (ddof=0), это не confidence interval.
+Validation macro F1 delta к baseline: **+0.084995 / +11.79%** относительно
+baseline, рассчитана до округления. Baseline/Dummy **не оценивались на test**;
+разные validation/test строки не дают paired сравнения.
+
+Validation error analysis: 84 errors / 553 строки (84 error groups, всего
+552 groups); confusion matrix `(3,3)`, true rows/predicted columns. До трёх
+минимальных source IDs на направленную пару дали 18 reviewed rows / 18 groups.
+Financial context 12/18 и negation/comparison 3/18 относятся только к reviewed
+sample, не всем errors и не доказанным причинам. На test negative recall
+48/84=0.571429 при accuracy 0.856522: class imbalance требует per-class metrics.
+Подробные CV/class tables, denominators, observations/hypotheses и source
+SHA-256 — [docs/day07_results.md](docs/day07_results.md),
+annotations — [docs/day05_failure_cases.csv](docs/day05_failure_cases.csv).
+
+## Структура и notebooks
+
+| Путь | Назначение |
+| --- | --- |
+| [src/finnews_sentiment](src/finnews_sentiment/) | Reusable data/features/models/visualization logic |
+| [configs](configs/) | Pinned source, group split/baseline, fixed CV candidates |
+| [docs/day07.md](docs/day07.md) | Карта entrypoints, output storage, demo и проверенные checkpoints |
+| [tests](tests/) / [scripts/check_types.py](scripts/check_types.py) | Offline contracts / source и notebook type gate |
+| `data/`, `models/`, `reports/` | Source/generated artifacts с описанными tracking exceptions |
+| `.cache/` | Локальные temporary outputs/evidence, не runtime input |
+
+| День | Notebook | Инструкция |
+| --- | --- | --- |
+| 01 | [EDA](notebooks/day01_eda.ipynb) | [Day01](docs/day01.md) |
+| 02 | [Preprocessing](notebooks/day02_preprocessing.ipynb) | [Day02](docs/day02.md) |
+| 03 | [Baseline](notebooks/day03_baseline.ipynb) | [Day03](docs/day03.md) |
+| 04 | [Experiments](notebooks/day04_experiments.ipynb) | [Day04](docs/day04.md) |
+| 05 | [Error analysis](notebooks/day05_error_analysis.ipynb) | [Day05](docs/day05.md) |
+| 06 | [Inference](notebooks/day06_inference.ipynb) | [Day06](docs/day06.md) |
+| 07 | [Review/demo](notebooks/day07_review.ipynb) | [Day07](docs/day07.md) |
+
+При наличии локальных prerequisites зарегистрируйте kernel перед запуском:
+
+```bash
+venv/bin/python -m ipykernel install --prefix=venv --name=text-classification --display-name="Python (Text-classification venv)"
+venv/bin/jupyter notebook notebooks/day07_review.ipynb
+```
+
+Выберите kernel **Python (Text-classification venv)**, Run All. Day07 читает
+принятые references/cache и выполняет demo; не делает fit/CV/download/test
+prediction. Day01–Day04 notebooks могут явно создавать outputs/обучать;
+их повтор не является default inference flow. Root/src setup поддерживает cwd
+root и `notebooks/`. Для автоматического прогона Day07 с отдельным output:
+
+```bash
+mkdir -p .cache/day07-checkpoints
+venv/bin/jupyter nbconvert --to notebook --execute --ExecutePreprocessor.kernel_name=text-classification --ExecutePreprocessor.timeout=180 --output-dir=.cache/day07-checkpoints --output=readme-review.ipynb notebooks/day07_review.ipynb
+```
+
+Повтор использует существующую модель, пишет только temporary demo CSV и
+указанный output notebook; основной notebook не перезаписывает. Не запускайте
+параллельно перезапись artifacts, на которых работает пользовательский kernel.
+
+## Проверки и границы воспроизведения
+
+С установленными dev requirements доступны следующие проверки из корня:
+
+```bash
+venv/bin/python scripts/check_types.py
+venv/bin/python -m pytest tests -v
+venv/bin/python -m compileall -q src tests scripts
+git diff --check
+```
+
+Type gate проверяет Python и sequential/cell-boundary exports всех notebooks;
+CLI Pyright не является полным запуском VS Code Pylance. Offline tests с
+fixtures, real-data replay, clean-kernel notebook и fresh dependency install —
+отдельные свидетельства. В D7-05 README проверяется по текущему коду, путям,
+ссылкам и accepted results; исполнение всех его flows — отдельный **D7-06**,
+полная приёмка — **D7-07**. Эти два пункта пока не выполнены.
+
+## Ограничения
+
+- Английские финансовые предложения исторического agreement subset не
+  гарантируют качество на live news, другом domain/time period или языке.
+- Один group split, три folds и похожие тексты ограничивают статистические
+  выводы. Validation уже просмотрена, test открыт; нельзя улучшать модель
+  по test и выдавать тот же test за независимую проверку нового решения.
+- Bag-of-ngrams ограничивает контекст, отрицания/сравнения и OOV. Class imbalance
+  требует per-class recall/F1; unlabeled demo не измеряет качество.
+- LinearSVC не возвращает probabilities; score не confidence. Joblib — только
+  trusted local, exact runtime/source compatibility; checksum не удостоверяет автора.
+- Тональность предложения не является прогнозом доходности или торговой рекомендацией.
+
+Правила работы с проектом — [AGENTS.md](AGENTS.md). Ниже сохранены исходные
+материалы задания. Их учебные заготовки описывают первоначальные варианты
+(включая устаревшие preprocessing/train examples), а не актуальные команды
+запуска. Для работы используйте инструкцию выше и согласованный SPEC.
 
 ---
 
