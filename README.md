@@ -8,7 +8,8 @@
 
 Day01–Day06 приняты. Итоговые результаты, demo и инструкция README подготовлены;
 проверка training/inference/frozen flows в изолированных копиях D7-06 выполнена;
-приёмка всего mini-product D7-07 пока pending. Текущий статус — [PLAN.md](PLAN.md),
+итоговая приёмка mini-product — [протокол D7-07](docs/day07.md#d7-07-итоговая-приёмка-mini-product).
+Текущий статус — [PLAN.md](PLAN.md),
 контракты — [SPEC.md](SPEC.md), evidence — [docs/day07.md](docs/day07.md).
 
 ## Задача и данные
@@ -328,7 +329,10 @@ D7-06 исполнил offline training, inference и frozen reuse в отдел
 с existing venv: 20 training outputs совпали побайтно, исходные artifacts
 сохранены. Протокол — [docs/day07.md](docs/day07.md#d7-06-проверка-readme-в-изолированных-копиях).
 Fresh install/download и другие платформы не проверялись; новый Day06 build
-не повторялся (evidence D6-02/D6-03). Полная приёмка **D7-07** пока pending.
+не повторялся (evidence D6-02/D6-03). Полная приёмка **D7-07**, текущий полный
+pytest/type gate и clean-kernel checkpoint — в [протоколе](docs/day07.md#d7-07-итоговая-приёмка-mini-product).
+[Acceptance table](docs/day07_acceptance.csv) связывает все задачи и критерии
+задания с файлами и evidence.
 
 ## Ограничения
 

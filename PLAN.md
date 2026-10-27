@@ -8,8 +8,8 @@ Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
 Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
-D7-01…D7-05 выполнены 2026-10-25; D7-06 выполнен 2026-10-27; D7-07 pending.
-Следующий исполнимый пункт — D7-07.
+D7-01…D7-05 выполнены 2026-10-25; D7-06…D7-07 выполнены 2026-10-27.
+Day07 и mini-product приняты по SPEC §12; pending пунктов нет.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1849,7 +1849,8 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
 Один ID — один самостоятельно исполнимый запрос. Последовательность:
 **D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
-D7-01…D7-05 выполнены 2026-10-25; D7-06 выполнен 2026-10-27; D7-07 pending.
+D7-01…D7-05 выполнены 2026-10-25; D7-06…D7-07 выполнены 2026-10-27.
+Day07 принят по SPEC §12.
 
 Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
 цель → краткая теория → вызов существующего API → реальные outputs →
@@ -2194,7 +2195,7 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ### D7-07 — итоговая приёмка mini-product
 
-- [ ] Подтвердить SPEC §12 и все критерии `classification_day07.txt`.
+- [x] Подтвердить SPEC §12 и все критерии `classification_day07.txt`.
 - Зависит от D7-06. Вход: README/docs, notebook и evidence D7-01…D7-06.
   Составить acceptance table: структура, README, training
   и inference, baseline/улучшения/error analysis, demo и limitations →
@@ -2215,18 +2216,33 @@ outputs, kernels и source/config/data/model hashes ради косметики.
   Commit/push только по запросу.
 - Самопроверка: какие claims подтверждены real-data run, какие fixtures,
   какие остаются гипотезами и что ограничивает перенос на новые новости?
-- Свидетельство: pending.
+- Свидетельство (2026-10-27): Day07 и mini-product приняты по SPEC §12.
+  docs/day07_acceptance.csv + таблица docs/day07.md покрывают все 6 задач и
+  5 критериев classification_day07.txt, содержат paths/commands/evidence.
+  D7-06 real-data evidence переиспользовано, training не повторялся.
+  Полный текущий pytest: 442 passed, 46 subtests passed, 67.17 s
+  (67.912 s wall). Type gate: 0 diagnostics, 53 project files,
+  7 sequential + 85 cell-boundary = 92 notebook modules, 11.905 s;
+  CLI Pyright не полный VS Code Pylance. Compileall src/tests/scripts —
+  exit 0 (0.041 s), diff check — exit 0, повторён после финальных docs.
+  Notebook: 7 sections / 20 code cells; clean kernels root 5.631 s и
+  notebooks/ 5.676 s, 20/20, 0 errors; outputs сохранены. Guards запретили
+  fit/CV/network/final-run/test predict/unsafe writes; только demo inference,
+  parent 3 Pipeline predict/4 TF-IDF transform и два CSV children по 1 predict.
+  Fitted state неизменен; probes blocked, неожиданных нарушений нет.
+  84/84 source/input/config/reports/model files совпали с D7-06 и до/после,
+  включая final cache/test predictions/bundle pair. README metrics/links/
+  assignment block проверены notebook. Evidence — .cache/day07-checkpoints/d707/.
+  README/docs/PLAN/SPEC status и notebook обновлены. Нового final evaluation,
+  fit/CV/build не было; source/runtime/artifacts/user kernels сохранены.
+  Fresh install/download/другие платформы/GUI registration не проверены;
+  это границы приёмки, не заявленные успешные checks. Commit/push не создан.
 
-## Шаблон запроса для следующего чата
+## Завершение плана
 
-Day06 принят; D7-01…D7-06 завершены, первый pending пункт — D7-07:
-
-> Выполни только D7-07 из PLAN.md по SPEC §12: составь acceptance table,
-> используй D7-06 evidence без повторного training, выполни полный offline
-> suite/type gate/compileall/diff check и clean-kernel Day07 notebook из root
-> и notebooks/. Обнови notebook/docs/PLAN/SPEC status по реальным результатам.
-> Не запускай новый fit/CV/test predict/final evaluation, не меняй frozen
-> artifacts/current venv/пользовательские kernels, commit не делай.
+Day01–Day07 приняты; все запланированные ID завершены. Следующего pending
+пункта нет. Новые эксперименты, перенос на другие данные или deployment требуют
+отдельного согласованного scope; frozen test не использовать для нового tuning.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

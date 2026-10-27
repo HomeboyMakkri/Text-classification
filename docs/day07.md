@@ -1,4 +1,4 @@
-# Day07 — аудит handoff и read-only checkpoint
+# Day07 — финализация и приёмка mini-product
 
 ## D7-01: результат и границы
 
@@ -6,7 +6,9 @@
 а не финализацию всего mini-product. Результат D7-02 — в карте ниже,
 результаты D7-03 — в [итоговой сводке](day07_results.md).
 D7-04 показывает demo ниже; D7-05 подготовил итоговый README.
-D7-06 проверил README flows 2026-10-27; D7-07 остаётся pending.
+D7-06 проверил README flows; D7-07 и весь Day07 приняты 2026-10-27.
+Ранние разделы ниже сохраняют исторические статусы на дату соответствующего ID;
+актуальная итоговая приёмка приведена в D7-07.
 Контракт — [SPEC §12](../SPEC.md), порядок — [PLAN](../PLAN.md).
 Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb).
 Исходный раздел D7-01 содержит пять code cells; D7-02 добавляет две code cells
@@ -638,6 +640,86 @@ cell-boundary modules = 90 notebook files. CLI Pyright не полный Pylance
 `tests/test_check_types.py`: 5 passed, 7.15 s; compileall src/tests/scripts и
 `git diff --check` — exit 0. Новых production functions/tests не потребовалось;
 full pytest suite остаётся D7-07.
+
+## D7-07: итоговая приёмка mini-product
+
+Приёмка по SPEC §12 и `classification_day07.txt`, 2026-10-27.
+Исходный checkout перед работой чист; D7-06 evidence использовано без повторного
+training. Таблица в [day07_acceptance.csv](day07_acceptance.csv) читается последним
+разделом notebook. Задачи и критерии сопоставлены явно:
+
+| ID | Требование | Файлы и evidence |
+| --- | --- | --- |
+| task-1 | Понятная структура | `README.md`, `SPEC.md`, `docs/day07.md`. D7-02: карта reusable source/notebooks/configs/generated outputs; imports/storage проверены notebook |
+| task-2 | README: задача, данные, training, inference, метрики | `README.md`, `configs/dataset.json`, `docs/day07_results.md`. D7-05 audit + D7-06 commands.json: offline data/train/CV, API/CSV, frozen reuse |
+| task-3 | Demo-примеры | `docs/day06_examples.csv`, `reports/day06/demo_predictions.csv`. D7-04 API/CSV, raw-clean-label и duplicates/order; D7-06 Python table / CSV bytes parity |
+| task-4 | Baseline, лучший вариант и error analysis | `docs/day07_results.md`, `reports/day03/metrics.json`, `reports/day04/selection.json`, `docs/day05_failure_cases.csv`, `reports/day05/analysis_summary.json`. D7-03 checked validators/cache; D7-06 20 generated outputs byte-identical; validation delta +0.084995 / +11.79% |
+| task-5 | Запуск по инструкции | `README.md`, `.cache/day07-checkpoints/d706/commands.json`, `.cache/day07-checkpoints/d706/summary.json`. D7-06: independent inference/training/frozen copies, existing pinned venv; all 12 blocks exit 0 |
+| task-6 | Явные ограничения | `README.md`, `docs/day07_results.md`, `docs/day06.md`. Domain/time shift, imbalance, minority recall, holdout/CV limits, bag-of-ngrams/OOV, no probabilities, trusted joblib |
+| success-1 | Проект запускается по README | `README.md`, `.cache/day07-checkpoints/d706/training-comparison.json`, `.cache/day07-checkpoints/d706/summary.json`. Offline flows passed; install/download/other platforms are unverified; no new final evaluation or build |
+| success-2 | Есть training + inference flow | `src/finnews_sentiment/models/train_model.py`, `src/finnews_sentiment/models/run_experiments_day04.py`, `src/finnews_sentiment/models/predict.py`, `docs/day06.md`. D7-06 real-data baseline/fixed CV and standalone inference; historical D6-02/D6-03 build/serialization evidence |
+| success-3 | Есть baseline, улучшение и error analysis | `docs/day07_results.md`, `reports/day04/cv_summary.csv`, `reports/day05/validation_confusion_counts.csv`, `reports/day05/test_metrics.json`. Three improvement directions; five unique configurations/six CV rows; selected LinearSVC; frozen test only for selected model |
+| success-4 | Есть demo-примеры | `docs/day06_examples.csv`, `reports/day06/demo_predictions.csv`, `notebooks/day07_review.ipynb`. Eight unlabeled examples, deterministic parity; OOV and repeated inputs; demo is not a quality measurement |
+| success-5 | Законченный classification mini-product | `README.md`, `SPEC.md`, `PLAN.md`, `docs/day07.md`, `notebooks/day07_review.ipynb`. D7-07: acceptance mapping + full offline pytest/type/compile/diff + seven-section clean-kernel checkpoint; source/artifact hashes preserved |
+
+### Проверки и границы evidence
+
+**Day07 и mini-product приняты по согласованному offline scope SPEC §12.**
+Все 6 задач и 5 критериев сопоставлены evidence; все обязательные checks прошли.
+Новые production functions/tests не понадобились; исходные материалы задания
+и assignment block README сохранены.
+
+| Текущая проверка D7-07 | Результат | Runtime, s |
+| --- | --- | --- |
+| `venv/bin/python -m pytest tests -v` | 442 passed, 46 subtests passed | 67.17 pytest / 67.912 wall |
+| `venv/bin/python scripts/check_types.py` | 0 errors/warnings/informations | 11.905 |
+| `venv/bin/python -m compileall -q src tests scripts` | exit 0 | 0.041 |
+| `git diff --check` | exit 0 | 0.004 (до notebook; после финальных docs повторён) |
+| Day07 clean kernel, cwd=root | 7 sections, 20/20 code cells, 0 errors | 5.631 |
+| Day07 clean kernel, cwd=notebooks/ | 7 sections, 20/20 code cells, 0 errors | 5.676 |
+
+Type coverage: **53 project files**, **7 sequential exports + 85 cell-boundary
+modules = 92 notebook modules**. Это новые измерения D7-07, не counts прошлых
+этапов. CLI Pyright не полный VS Code Pylance.
+
+В каждом notebook run: parent 3 Pipeline predict / 4 TF-IDF transform,
+2 отдельных CSV children — по одному predict, только прежние demo inputs;
+fitted state SHA-256 неизменен. Guard probes parent 4 / child 5 блокированы;
+неожиданных вызовов нет. Fit/CV/download/final-run/test predict не выполнялись.
+Outputs сохранены в `notebooks/day07_review.ipynb`, обе executed copies —
+в `.cache/day07-checkpoints/d707/from-{root,notebooks}.ipynb`.
+
+**84/84 protected source/input/config/reports/model files сохранили SHA-256**
+от D7-06 и до/после D7-07, включая Day05 final cache/test predictions и Day06
+bundle/manifest. Все README metric rows, links и оригинальный assignment hash
+проверены кодом notebook; saved results прочитаны существующими validators.
+Acceptance table прочитана из tracked CSV: 11 unique IDs, все evidence files есть.
+
+Локальное evidence — `.cache/day07-checkpoints/d707/`: `pytest.log`, `types.log`,
+`compileall.log`, `diff-check.log`, `checks-records.json` (commands/exit/runtime),
+`before.json`/`after.json`, `execution.json`, `notebook.log`, `demo.json`,
+`summary.json`. Raw outputs, models и local evidence в Git не добавляются.
+
+Training/inference: D7-06 real-data evidence — 20 generated outputs и 2 raw
+inputs byte-identical, три независимые copies, Python/CSV demo parity,
+read-only frozen cache/pair reuse, consistency со standalone process.
+Day07 использует исторические D5-04 final cache и D6-02/D6-03
+train-only build/serialization evidence; новая оценка test/build не выполнялась.
+Полный pytest D7-07 проверяет offline fixtures и контракты; эти model calls
+не являются fit/predict на реальном held-out test. Notebook guards ограничивают
+реальные model calls прежними demo inputs, запрещают fit/CV/network/final run
+и посторонние writes; source/input/model/final-cache hashes сверяются до/после.
+Проверка guards — audit механизмы, не OS security sandbox.
+
+Ограничения приёмки: existing pinned venv; fresh dependency install,
+network/download при отсутствии archive, другие платформы, GUI/kernel
+registration не проверялись. Clone без ignored bundle/references/evidence
+недостаточен; README описывает trusted pair и зависимости явного build.
+CLI Pyright не является полным запуском VS Code Pylance.
+Все обязательные checks согласованного offline workflow пройдены;
+ограничения качества и будущие гипотезы остаются в
+[results](day07_results.md) и README. Пользовательские kernels не прерывались,
+source/runtime/model/frozen reports не изменялись, commit/push не выполнялись.
 
 ## Приложение: inventory SHA-256 на 2026-10-25
 

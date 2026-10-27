@@ -8,8 +8,9 @@
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
 Day01–Day06 завершены; **day06** принят 2026-10-19 по §11 (D6-01…D6-08).
-Day07 выполняется по §12: D7-01…D7-06 завершены, D7-06 проверен 2026-10-27;
-итоговая приёмка D7-07 и всего дня pending.
+Day07 и mini-product приняты 2026-10-27 по §12, D7-01…D7-07 завершены.
+Evidence: docs/day07.md и docs/day07_acceptance.csv; existing-venv offline scope,
+fresh install/download/другие платформы не проверены.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 
@@ -1329,3 +1330,9 @@ final-run/test predict. Предыдущие notebooks повторно без �
 CLI Pyright не является полным VS Code Pylance. Неисполненные проверки и
 ограничения окружения записывать явно; незакрытые обязательные checks оставляют
 Day07 pending. Планирование не является выполнением/приёмкой Day07.
+
+Приёмка подтверждена D7-07 (2026-10-27): 442 pytest tests + 46 subtests,
+0 type diagnostics (53 project / 92 notebook modules), compileall/diff check,
+clean kernels из root и notebooks/ (7 sections / 20 code cells), 84 protected
+hashes неизменны. Training replay — D7-06 evidence, без нового fit/test run.
+Полная acceptance table и границы проверок — docs/day07.md / day07_acceptance.csv.
