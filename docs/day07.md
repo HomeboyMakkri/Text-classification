@@ -6,7 +6,7 @@
 а не финализацию всего mini-product. Результат D7-02 — в карте ниже,
 результаты D7-03 — в [итоговой сводке](day07_results.md).
 D7-04 показывает demo ниже; D7-05 подготовил итоговый README.
-D7-06…D7-07 остаются pending.
+D7-06 проверил README flows 2026-10-27; D7-07 остаётся pending.
 Контракт — [SPEC §12](../SPEC.md), порядок — [PLAN](../PLAN.md).
 Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb).
 Исходный раздел D7-01 содержит пять code cells; D7-02 добавляет две code cells
@@ -14,6 +14,7 @@ Checkpoint — [day07_review.ipynb](../notebooks/day07_review.ipynb).
 для сводки проверенных saved results. D7-04 добавляет три code cells: API,
 TF-IDF/OOV diagnostic и два повтора CSV CLI. D7-05 добавляет две code cells
 с картой команд и проверкой README без запуска документированных flows.
+D7-06 добавляет две code cells чтения evidence и сверки hashes.
 
 Вызваны существующие `load_inference_reference(ROOT)` и
 `load_bundle(ROOT / "models/day06/sentiment_bundle.joblib")` из
@@ -549,6 +550,94 @@ Execution-only guards переиспользованы из `.cache/day07-d704/`
 не нужны ordinary notebook/API/CLI. D7-04 commit — `1482198`; D7-05 без commit.
 Fresh install и полный запуск README **не подтверждены**: D7-06 остаётся pending,
 итоговая приёмка — D7-07. README не объявляет эти checks выполненными.
+
+## D7-06: проверка README в изолированных копиях
+
+Выполнено 2026-10-27, Linux/WSL, existing pinned `venv/`. Три независимые
+копии находятся в `.cache/day07-checkpoints/d706/{inference,training,frozen}`.
+Начальный `git status --short` пуст. В training скопированы только `src/`,
+`configs/`, локальные raw inputs и demo; processed/reports создавались заново.
+Frozen получила отдельный snapshot принятых references и pair из исходного
+checkout, без свежих training outputs. Inference содержит только source,
+bundle/manifest и demo input, без `data/`, `configs/`, `reports/`.
+
+Исполнены Bash blocks из README без изменения команд. Локальная обёртка
+`venv/bin/python` вызывает существующий interpreter и подключает execution-only
+`sitecustomize` guards даже при `PYTHONPATH=src` в snippet. Это проверка команд
+в новом cwd, **не новая установка dependencies**. Guards лежат только в ignored
+evidence; production code и runtime не менялись.
+
+| Flow / README command | Exit | Runtime, s | Результат |
+| --- | --- | --- | --- |
+| Inference Python heredoc | 0 | 1.488 | Printed table = accepted demo |
+| Inference CSV CLI + cat | 0 | 1.352 | CSV bytes = accepted demo |
+| prepare_phrasebank → prepare_day02 | 0 | 2.873 | passed |
+| train_model → run_experiments_day04 | 0 | 50.746 | 20 outputs + 2 raw byte-identical |
+| Frozen load_final_evaluation | 0 | 1.513 | passed |
+| run_error_analysis_day05 | 0 | 1.912 | passed |
+| inference_artifact, complete pair | 0 | 1.723 | passed |
+| inference_consistency | 0 | 3.132 | passed |
+| Frozen Python heredoc | 0 | 1.383 | Printed table = accepted demo |
+| Frozen CSV CLI + cat | 0 | 1.335 | CSV bytes = accepted demo |
+| Cache повтор с write guard | 0 | 1.495 | passed |
+| Pair reuse повтор с write guard | 0 | 1.680 | passed |
+
+Проверено на реальных данных:
+
+- Day02 canonical/processed и provenance, Day03 source IDs/group splits,
+  baseline/Dummy metrics/predictions, Day04 folds/CV/selection/validation:
+  **20/20 generated outputs и 2/2 raw inputs побайтно совпали**, SHA-256 before/replay сохранены.
+  Train 2210 / validation 553 / test 690; candidate `linear_svc`, CV macro F1
+  0.7687150440540608, validation macro F1 0.8059606214204886.
+- Training guard разрешал fit текста только из прежнего train, transform/predict
+  только train/validation/demo. Test texts исключены; запрет проверен probe.
+  Зафиксированы baseline 1 Pipeline fit + 1 Dummy fit; Day04 19 Pipeline fits
+  (18 CV + selected train fit). Содержимое test используется для проверки
+  запрета, не передаётся estimator при выполнении команд. Проверка Dummy
+  контролировала размеры constant-feature inputs: fit 2210 / predict 553.
+- Python output и CSV bytes в обеих inference/frozen copies совпали с
+  `reports/day06/demo_predictions.csv`, включая raw/clean fields и порядок.
+- Cache вернул `reused`, artifact CLI — checked reuse. Report-only runner
+  воспроизвёл прежние файлы; consistency проверила validation и standalone.
+  Ноль fit в frozen/inference, ноль model calls у cache/report/reuse.
+  Дополнительные cache/reuse запуски прошли с запретом записи в копию.
+- Guards запрещали network и `run_final_evaluation`, проверяли probes;
+  неожиданных нарушений — 0. Чтение исходных data/configs/reports/models
+  запрещено; в inference также запрещены training references в самой копии.
+  Consistency child использует собственный standalone guard из Day06
+  (`-I`, без наследования sitecustomize): training/file/network/state checks passed.
+  Это исполняемые audit checks, не OS security sandbox.
+- SHA-256 всех **84 файлов** исходных `src/data/configs/reports/models` до/после
+  совпали; в frozen copy также **84/84** без изменений содержимого. Report-only
+  запись была явной, одинаковый hash не означает отсутствия этой записи.
+
+Evidence: `commands.json` содержит полные commands, exit codes/runtime;
+`*.log` — stdout/stderr; `*.guard.json` — counters/probes;
+`training-comparison.json` — hashes/diffs 20 outputs и двух raw inputs;
+`before.json`/`after.json`, `frozen-before.json`/`frozen-after.json` — snapshots;
+`summary.json` — итог для read-only раздела notebook. Все пути относительно
+`.cache/day07-checkpoints/d706/`. Начальный запуск без активного sitecustomize
+остановлен и сохранён отдельно в `d706-uninstrumented/`; он не входит в evidence
+приёмки. Полный повтор с guards подтверждён приведёнными результатами.
+
+Не проверялись fresh dependency install, download при отсутствующем archive,
+другие платформы, GUI/Jupyter registration. Новый Day05 final evaluation и
+Day06 build не запускались: build/serialization подтверждены D6-02/D6-03.
+Полный offline suite и итоговая приёмка mini-product остаются D7-07.
+
+Checkpoint: 6 sections / 18 code cells исполнены в отдельных clean kernels
+из root и `notebooks/`: 18/18, 0 errors, 6.358 s / 7.461 s. Outputs сохранены
+в основном notebook и `from-root.ipynb` / `from-notebooks.ipynb` в evidence.
+Guard запретил fit/CV/network/test predict/unsafe writes; parent выполнил
+3 Pipeline predict / 4 TF-IDF transform, 2 CLI children — по одному predict,
+только demo; fitted state неизменен. `execution.json` / `notebook.log` содержат
+counters и runtime. Существующие пользовательские kernels не прерывались.
+
+Type gate: 0 diagnostics, 53 project files, 7 sequential exports + 83
+cell-boundary modules = 90 notebook files. CLI Pyright не полный Pylance в VS Code.
+`tests/test_check_types.py`: 5 passed, 7.15 s; compileall src/tests/scripts и
+`git diff --check` — exit 0. Новых production functions/tests не потребовалось;
+full pytest suite остаётся D7-07.
 
 ## Приложение: inventory SHA-256 на 2026-10-25
 

@@ -8,8 +8,8 @@ Day04: D4-01…D4-08 завершены 2026-10-18.
 Day05: D5-01…D5-06 завершены 2026-10-18; приёмка подтверждена.
 Day06: D6-01…D6-03 выполнены 2026-10-18; D6-04…D6-08 выполнены 2026-10-19.
 Day06 принят по SPEC §11. Day07 детализирован по SPEC §12 (2026-10-25),
-D7-01…D7-05 выполнены 2026-10-25; D7-06…D7-07 pending.
-Следующий исполнимый пункт — D7-06.
+D7-01…D7-05 выполнены 2026-10-25; D7-06 выполнен 2026-10-27; D7-07 pending.
+Следующий исполнимый пункт — D7-07.
 Если пользователь называет ID, выполняем только его; если день —
 его зависимые пункты последовательно. Каждый завершённый ID имеет раздел notebook,
 проверку и свидетельство ниже. `[ ]` — ещё не завершено, `[x]` — подтверждено.
@@ -1849,7 +1849,7 @@ HTTP API, UI, calibration, новые ML experiments и финальный READM
 Детализация `classification_day07.txt` по SPEC §12; prerequisite — D6-08.
 Один ID — один самостоятельно исполнимый запрос. Последовательность:
 **D7-01 → D7-02 → D7-03 → D7-04 → D7-05 → D7-06 → D7-07**.
-D7-01…D7-05 выполнены 2026-10-25; D7-06…D7-07 остаются pending.
+D7-01…D7-05 выполнены 2026-10-25; D7-06 выполнен 2026-10-27; D7-07 pending.
 
 Общий checkpoint — `notebooks/day07_review.ipynb`, по разделу на каждый ID:
 цель → краткая теория → вызов существующего API → реальные outputs →
@@ -2139,7 +2139,7 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ### D7-06 — проверка запуска по README в изолированных копиях
 
-- [ ] Исполнить документированные flows с отдельными outputs и evidence.
+- [x] Исполнить документированные flows с отдельными outputs и evidence.
 - Зависит от D7-05. Вход: README, локальные pinned raw inputs, references,
   модель и совместимый venv. Без network по умолчанию.
 - Создать независимые временные копии, как в SPEC §12:
@@ -2166,7 +2166,31 @@ outputs, kernels и source/config/data/model hashes ради косметики.
   после исправления повторять затронутую команду. Общий checkpoint.
 - Самопроверка: почему training replay, artifact reuse, demo и final test
   evaluation — разные свидетельства? Что именно доказывает изоляция?
-- Свидетельство: pending.
+- Свидетельство (2026-10-27): README snippets исполнены в трёх отдельных
+  copies с existing pinned venv, без изменения source/runtime. Inference без
+  data/configs/reports: Python table и CSV bytes совпали с accepted demo.
+  Training: offline prepare_phrasebank→prepare_day02→baseline→fixed CV;
+  20/20 generated outputs и 2/2 raw inputs совпали побайтно: IDs/groups/splits,
+  folds/choice/метрики/predictions/provenance. Baseline + CV block 50.746 s;
+  candidate linear_svc, никаких новых настроек или test estimator calls.
+  Frozen: cache reused, report-only repeat, complete pair reuse, consistency
+  и Python/CSV demos — exit 0; отдельно cache/reuse с write guard — exit 0.
+  Новый build/final evaluation не запускались. Guards запретили network,
+  fit вне training, test text transform/predict и training-reference reads
+  в inference; probes passed, неожиданных нарушений 0. Consistency child
+  прошёл собственный standalone training/file/network/state guard.
+  84/84 protected files исходного checkout и frozen copy сохранили SHA-256.
+  Evidence — `.cache/day07-checkpoints/d706/`: commands/logs/guards,
+  training-comparison, before/after/frozen snapshots, summary/execution.
+  docs/day07.md и README отражают результат и границы. Notebook: 6 sections,
+  18/18 code cells, clean kernels root и notebooks/, outputs сохранены;
+  без fit/CV/download/test predict, исходные artifacts/state неизменны.
+  Type gate — 0 diagnostics: 53 project files, 7 sequential + 83 cell-boundary
+  = 90 notebook modules; CLI Pyright не полный VS Code Pylance.
+  tests/test_check_types.py — 5 passed (7.15 s); compileall и diff check — exit 0.
+  Fresh dependency install/download/другие платформы/GUI registration
+  не проверены; current venv и пользовательские kernels не менялись.
+  Полный suite/итоговая приёмка остаются D7-07; commit не создан.
 
 ### D7-07 — итоговая приёмка mini-product
 
@@ -2195,14 +2219,14 @@ outputs, kernels и source/config/data/model hashes ради косметики.
 
 ## Шаблон запроса для следующего чата
 
-Day06 принят; D7-01…D7-05 завершены, первый pending пункт — D7-06:
+Day06 принят; D7-01…D7-06 завершены, первый pending пункт — D7-07:
 
-> Выполни только D7-06 из PLAN.md по SPEC §12: проверь README flows в отдельных
-> inference/training/frozen copies с сохранением исходных artifacts. Training
-> replay Day02→Day03→Day04 запускай только явно в отдельной копии на прежнем
-> train/configs, без нового поиска/test prediction/final evaluation. Запиши
-> реальные commands/logs/hashes/limitations, обнови Day07 notebook/docs/PLAN.
-> D7-07 не начинай, current venv/пользовательские kernels не меняй, commit не делай.
+> Выполни только D7-07 из PLAN.md по SPEC §12: составь acceptance table,
+> используй D7-06 evidence без повторного training, выполни полный offline
+> suite/type gate/compileall/diff check и clean-kernel Day07 notebook из root
+> и notebooks/. Обнови notebook/docs/PLAN/SPEC status по реальным результатам.
+> Не запускай новый fit/CV/test predict/final evaluation, не меняй frozen
+> artifacts/current venv/пользовательские kernels, commit не делай.
 
 При запросе одного ID выполнять только его. При запросе целого будущего дня
 сначала детализировать roadmap до реализации; не добавлять опережающие features.

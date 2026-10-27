@@ -8,7 +8,8 @@
 
 Путь: data → EDA → preprocessing → baseline → experiments → error analysis → inference.
 Day01–Day06 завершены; **day06** принят 2026-10-19 по §11 (D6-01…D6-08).
-Day07 выполняется по §12 и PLAN D7-01…D7-07; приёмка всего дня pending.
+Day07 выполняется по §12: D7-01…D7-06 завершены, D7-06 проверен 2026-10-27;
+итоговая приёмка D7-07 и всего дня pending.
 Transformer fine-tuning, HTTP API, UI, deployment,
 торговые стратегии и SOTA не входят в обязательный scope.
 

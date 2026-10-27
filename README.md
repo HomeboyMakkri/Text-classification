@@ -7,8 +7,8 @@
 тот же код и показывают реальные результаты.
 
 Day01–Day06 приняты. Итоговые результаты, demo и инструкция README подготовлены;
-проверка всех команд по README в изолированных копиях — D7-06, приёмка всего
-mini-product — D7-07, пока pending. Текущий статус — [PLAN.md](PLAN.md),
+проверка training/inference/frozen flows в изолированных копиях D7-06 выполнена;
+приёмка всего mini-product D7-07 пока pending. Текущий статус — [PLAN.md](PLAN.md),
 контракты — [SPEC.md](SPEC.md), evidence — [docs/day07.md](docs/day07.md).
 
 ## Задача и данные
@@ -323,9 +323,12 @@ git diff --check
 Type gate проверяет Python и sequential/cell-boundary exports всех notebooks;
 CLI Pyright не является полным запуском VS Code Pylance. Offline tests с
 fixtures, real-data replay, clean-kernel notebook и fresh dependency install —
-отдельные свидетельства. В D7-05 README проверяется по текущему коду, путям,
-ссылкам и accepted results; исполнение всех его flows — отдельный **D7-06**,
-полная приёмка — **D7-07**. Эти два пункта пока не выполнены.
+отдельные свидетельства. D7-05 проверил README по коду, путям и результатам;
+D7-06 исполнил offline training, inference и frozen reuse в отдельных копиях
+с existing venv: 20 training outputs совпали побайтно, исходные artifacts
+сохранены. Протокол — [docs/day07.md](docs/day07.md#d7-06-проверка-readme-в-изолированных-копиях).
+Fresh install/download и другие платформы не проверялись; новый Day06 build
+не повторялся (evidence D6-02/D6-03). Полная приёмка **D7-07** пока pending.
 
 ## Ограничения
 
